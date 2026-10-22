@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>测试</title></head>
+<body>
+<h1>测试页面</h1>
+<div id="info"></div>
+<script src="js/api.js"></script>
+<script>
+  const info = document.getElementById('info');
+  info.innerHTML = '<p>token: ' + (Auth.getToken() || '无') + '</p>';
+  info.innerHTML += '<p>isLoggedIn: ' + Auth.isLoggedIn() + '</p>';
+
+  // 测试 validateToken
+  validateToken().then(valid => {
+    info.innerHTML += '<p>validateToken: ' + valid + '</p>';
+    if (!valid) {
+      info.innerHTML += '<p>正在跳转到登录页...</p>';
+      setTimeout(() => goTo('auth.html'), 2000);
+    }
+  }).catch(e => {
+    info.innerHTML += '<p>validateToken 错误: ' + e.message + '</p>';
+  });
+</script>
+</body>
+</html>

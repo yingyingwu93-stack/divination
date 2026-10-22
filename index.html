@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#4c1d95">
+  <title>占卜 - 探索命运之谜</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="page" id="page-home">
+  <div class="header">
+    <div class="stars-bg" id="stars-home"></div>
+    <div class="header-top">
+      <div class="header-logo"><span class="icon">🔮</span>占卜</div>
+      <span style="font-size:13px;opacity:0.8;">探索命运之谜</span>
+    </div>
+    <div class="header-subtitle">✨ 星辰指引 · 预知未来 ✨</div>
+  </div>
+
+  <div class="feature-grid">
+    <div class="feature-card" onclick="goTo('zodiac.html')">
+      <span class="icon">⭐</span><div class="name">星座分析</div><div class="desc">十二星座运势</div>
+    </div>
+    <div class="feature-card" onclick="goTo('dream.html')">
+      <span class="icon">🌙</span><div class="name">周公解梦</div><div class="desc">梦境深度解析</div>
+    </div>
+    <div class="feature-card" onclick="goTo('tarot.html')">
+      <span class="icon">🃏</span><div class="name">塔罗牌</div><div class="desc">三张牌占卜</div>
+    </div>
+    <div class="feature-card" onclick="goTo('bazi.html')">
+      <span class="icon">☯️</span><div class="name">八字命理</div><div class="desc">生辰八字测算</div>
+    </div>
+  </div>
+
+  <div class="page-container">
+    <div class="section-title"><h3>🌟 今日运势</h3><span class="more" onclick="goTo('zodiac.html')">查看全部 ›</span></div>
+    <div class="zodiac-scroll" id="zodiac-scroll"></div>
+  </div>
+
+  <div class="page-container">
+    <div class="section-title"><h3>🔮 AI 占卜助手</h3><span class="more" onclick="goTo('history.html')">记录 ›</span></div>
+    <div class="chat-box" id="chat-box">
+      <div class="chat-messages" id="chat-messages">
+        <div class="chat-msg ai"><div class="chat-bubble">你好！我是你的 AI 占卜助手 🔮 你可以问我关于感情、运势、人际关系等问题，我会为你提供积极的指引和建议～</div></div>
+      </div>
+      <div class="chat-input-bar">
+        <input type="text" id="chat-input" placeholder="输入你的问题..." onkeydown="if(event.key==='Enter')sendChat()">
+        <button class="chat-send-btn" onclick="sendChat()">发送</button>
+      </div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <div class="nav-item active"><span class="nav-icon">🏠</span><span>首页</span></div>
+    <div class="nav-item" onclick="goTo('zodiac.html')"><span class="nav-icon">⭐</span><span>星座</span></div>
+    <div class="nav-item" onclick="goTo('dream.html')"><span class="nav-icon">🌙</span><span>解梦</span></div>
+    <div class="nav-item" onclick="goTo('settings.html')"><span class="nav-icon">⚙️</span><span>设置</span></div>
+  </nav>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/data.js"></script>
+<script src="js/main.js"></script>
+<script src="js/pwa.js"></script>
+</body>
+</html>

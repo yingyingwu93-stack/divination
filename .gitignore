@@ -1,0 +1,35 @@
+# ===== 密钥与本地配置 =====
+backend/.env
+.env
+*.env
+!backend/.env.example
+
+# ===== 数据库：含真实用户与占卜记录 =====
+backend/data.db
+*.db
+*.sqlite3
+
+# ===== 依赖与缓存 =====
+node_modules/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# ===== 日志 =====
+*.log
+
+# ===== 设计稿大图（体积大，需要时单独提供）=====
+主页面.png
+周公解梦.png
+星座分析测算.png
+
+# ===== 私人对话导出 =====
+与claude对话导出-*.md
+
+# ===== 编辑器 / 系统 =====
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini

@@ -1,0 +1,7 @@
+[build]
+  functions = "functions"
+
+[[redirects]]
+  from = "/api/tarot"
+  to = "/.netlify/functions/tarot"
+  status = 200

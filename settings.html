@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#4c1d95">
+  <title>设置 - 占卜平台</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+<div class="page" id="page-settings">
+  <div class="sub-header">
+    <div class="stars-bg" id="stars-settings"></div>
+    <div class="sub-header-top">
+      <button class="back-btn" onclick="goBack()">‹</button>
+      <span class="sub-header-title">⚙️ 设置</span>
+    </div>
+  </div>
+
+  <div class="page-container">
+    <!-- 用户信息卡片 -->
+    <div class="settings-card card">
+      <div class="settings-user">
+        <div class="settings-avatar">👤</div>
+        <div class="settings-user-info">
+          <div class="settings-username" id="settings-username">加载中...</div>
+          <div class="settings-userid" id="settings-userid"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 账号管理 -->
+    <div class="settings-group card">
+      <div class="settings-group-title">账号管理</div>
+      <div class="settings-item" onclick="handleLogout()">
+        <span class="settings-item-icon">🚪</span>
+        <span class="settings-item-text">退出登录</span>
+        <span class="settings-item-arrow">›</span>
+      </div>
+      <div class="settings-item" onclick="showChangePassword()">
+        <span class="settings-item-icon">🔒</span>
+        <span class="settings-item-text">修改密码</span>
+        <span class="settings-item-arrow">›</span>
+      </div>
+      <div class="settings-item danger" onclick="showDeleteAccount()">
+        <span class="settings-item-icon">🗑️</span>
+        <span class="settings-item-text">注销账号</span>
+        <span class="settings-item-arrow">›</span>
+      </div>
+    </div>
+
+    <!-- 关于 -->
+    <div class="settings-group card">
+      <div class="settings-group-title">关于</div>
+      <div class="settings-item">
+        <span class="settings-item-icon">📱</span>
+        <span class="settings-item-text">版本</span>
+        <span class="settings-item-value">v1.0.0</span>
+      </div>
+      <div class="settings-item">
+        <span class="settings-item-icon">🔮</span>
+        <span class="settings-item-text">占卜平台</span>
+        <span class="settings-item-value">探索命运之谜</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI 聊天记录 -->
+  <div class="settings-group card">
+    <div class="settings-group-title">💬 AI 聊天记录</div>
+    <div id="chat-history-list">
+      <div class="empty-state" style="padding:20px;font-size:13px;color:var(--text-muted);">加载中...</div>
+    </div>
+  </div>
+
+  <!-- 修改密码弹窗 -->
+  <div class="modal-overlay" id="modal-password">
+    <div class="modal-content">
+      <h3 style="margin-bottom:16px;text-align:center;">🔒 修改密码</h3>
+      <div class="settings-form">
+        <input type="password" id="old-password" placeholder="当前密码">
+        <input type="password" id="new-password" placeholder="新密码（至少6位）">
+        <input type="password" id="confirm-password" placeholder="确认新密码">
+      </div>
+      <div id="password-message" class="auth-message"></div>
+      <div class="modal-actions">
+        <button class="modal-btn secondary" onclick="closeModal('modal-password')">取消</button>
+        <button class="modal-btn primary" onclick="handleChangePassword()">确认修改</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 注销账号弹窗 -->
+  <div class="modal-overlay" id="modal-delete">
+    <div class="modal-content">
+      <h3 style="margin-bottom:16px;text-align:center;color:#ef4444;">⚠️ 注销账号</h3>
+      <p style="color:var(--text-muted);font-size:14px;text-align:center;margin-bottom:16px;line-height:1.6;">
+        注销后，你的所有占卜记录将被永久删除，且无法恢复。<br>
+        确定要继续吗？
+      </p>
+      <div class="settings-form">
+        <input type="password" id="delete-password" placeholder="输入密码确认身份">
+      </div>
+      <div id="delete-message" class="auth-message"></div>
+      <div class="modal-actions">
+        <button class="modal-btn secondary" onclick="closeModal('modal-delete')">取消</button>
+        <button class="modal-btn danger" onclick="handleDeleteAccount()">确认注销</button>
+      </div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <div class="nav-item" onclick="goTo('index.html')"><span class="nav-icon">🏠</span><span>首页</span></div>
+    <div class="nav-item" onclick="goTo('zodiac.html')"><span class="nav-icon">⭐</span><span>星座</span></div>
+    <div class="nav-item" onclick="goTo('dream.html')"><span class="nav-icon">🌙</span><span>解梦</span></div>
+    <div class="nav-item active"><span class="nav-icon">⚙️</span><span>设置</span></div>
+  </nav>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/data.js"></script>
+<script src="js/main.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/pwa.js"></script>
+</body>
+</html>

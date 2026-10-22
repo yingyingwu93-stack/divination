@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#4c1d95">
+  <title>周公解梦 - 占卜</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="page" id="page-dream">
+  <div class="sub-header">
+    <div class="stars-bg" id="stars-dream"></div>
+    <div class="sub-header-top">
+      <button class="back-btn" onclick="goBack()">‹</button>
+      <span class="sub-header-title">🌙 周公解梦</span>
+    </div>
+    <div class="search-bar">
+      <input type="text" id="dream-search" placeholder="搜索梦境关键词..." oninput="filterDreams()">
+      <span class="search-icon">🔍</span>
+    </div>
+  </div>
+
+  <div class="page-container">
+    <div class="dream-describe card">
+      <h3 class="describe-title">✍️ 描述你的梦境</h3>
+      <textarea id="dream-input" placeholder="请描述梦中的场景、人物、感受..."></textarea>
+      <button class="describe-btn" onclick="interpretDream()">🔮 开始解梦</button>
+      <div class="interpret-result" id="interpret-result"></div>
+    </div>
+  </div>
+
+  <div class="page-container">
+    <div class="category-tags" id="cat-tags"></div>
+    <div class="dream-list" id="dream-list"></div>
+  </div>
+
+  <nav class="bottom-nav">
+    <div class="nav-item" onclick="goTo('index.html')"><span class="nav-icon">🏠</span><span>首页</span></div>
+    <div class="nav-item" onclick="goTo('zodiac.html')"><span class="nav-icon">⭐</span><span>星座</span></div>
+    <div class="nav-item active"><span class="nav-icon">🌙</span><span>解梦</span></div>
+    <div class="nav-item" onclick="goTo('settings.html')"><span class="nav-icon">⚙️</span><span>设置</span></div>
+  </nav>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/data.js"></script>
+<script src="js/main.js"></script>
+<script src="js/longcat.js"></script>
+<script src="js/pwa.js"></script>
+<script>
+  // 检查登录（异步）
+  requireLogin().then(valid => { if (!valid) throw new Error('需要登录'); });
+
+  async function interpretDream() {
+    const input = document.getElementById('dream-input').value.trim();
+    if (!input) { document.getElementById('dream-input').focus(); return; }
+    const resultBox = document.getElementById('interpret-result');
+    resultBox.classList.add('show');
+    resultBox.innerHTML = '<div class="ir-box"><p>🔮 正在分析你的梦境...</p></div>';
+
+    const formatText = text => text.replace(/\n/g, '<br>');
+
+    try {
+      let dreamResult = '';
+      let dreamRenderTimer = null;
+      let dreamFrameRequested = false;
+      let dreamPendingText = '';
+      const dreamContainer = document.createElement('div');
+      dreamContainer.className = 'ai-reading';
+      resultBox.innerHTML = '<div class="ir-box"></div>';
+      resultBox.querySelector('.ir-box').appendChild(dreamContainer);
+      const formatBrDream = text => text.replace(/\n/g, '<br>');
+      const doDreamRender = () => {
+        dreamContainer.innerHTML = formatBrDream(dreamPendingText);
+        dreamRenderTimer = null;
+      };
+      await getDreamAnalysis(input, (fullText) => {
+        dreamResult = fullText;
+        dreamPendingText = fullText;
+        if (!dreamRenderTimer) {
+          dreamRenderTimer = setTimeout(doDreamRender, 300);
+        }
+      });
+      if (dreamRenderTimer) {
+        clearTimeout(dreamRenderTimer);
+        doDreamRender();
+      }
+      // 保存到历史记录
+      await HistoryAPI.save('解梦', input, dreamResult);
+    } catch (error) {
+      console.warn('解梦 AI 分析失败:', error.message);
+      renderError(resultBox, `AI 分析失败：${error.message}`, 'interpretDream()');
+    }
+  }
+
+  renderCategories();
+  renderDreamList();
+</script>
+</body>
+</html>

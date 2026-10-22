@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#4c1d95">
+  <title>占卜记录 - 占卜平台</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="manifest" href="manifest.json">
+  <style>
+    .history-tabs {
+      display: flex;
+      padding: 0 16px;
+      gap: 8px;
+      margin-bottom: 16px;
+      overflow-x: auto;
+    }
+    .history-tab {
+      padding: 8px 16px;
+      border-radius: 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 13px;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .history-tab.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+    .history-list {
+      padding: 0 16px 20px;
+    }
+    .history-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .history-item-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .history-type {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--gold);
+    }
+    .history-date {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .history-preview {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      max-height: 60px;
+      overflow: hidden;
+      position: relative;
+    }
+    .history-preview::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 20px;
+      background: linear-gradient(transparent, var(--bg-card));
+    }
+    .history-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .history-btn {
+      padding: 6px 14px;
+      border-radius: 16px;
+      font-size: 12px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+    .history-btn.delete {
+      border-color: #ef4444;
+      color: #ef4444;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+    .empty-state .icon {
+      font-size: 48px;
+      display: block;
+      margin-bottom: 12px;
+      opacity: 0.5;
+    }
+    .empty-state p {
+      font-size: 14px;
+    }
+
+    /* 详情弹窗 */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 1000;
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .modal-overlay.show {
+      display: flex;
+    }
+    .modal-content {
+      width: 100%;
+      max-width: 500px;
+      max-height: 80vh;
+      background: var(--bg-card);
+      border-radius: 20px 20px 0 0;
+      padding: 24px 20px;
+      overflow-y: auto;
+      animation: slideUp 0.3s ease;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+    .modal-close {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      border-radius: 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 14px;
+      margin-top: 16px;
+      cursor: pointer;
+    }
+    .modal-text {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.8;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+<div class="page" id="page-history">
+  <div class="sub-header">
+    <div class="stars-bg" id="stars-history"></div>
+    <div class="sub-header-top">
+      <button class="back-btn" onclick="goBack()">‹</button>
+      <span class="sub-header-title">📜 占卜记录</span>
+    </div>
+  </div>
+
+  <div class="history-tabs" id="history-tabs">
+    <div class="history-tab active" data-type="">全部</div>
+    <div class="history-tab" data-type="聊天">💬 AI聊天</div>
+    <div class="history-tab" data-type="八字">☯️ 八字</div>
+    <div class="history-tab" data-type="塔罗">🃏 塔罗</div>
+    <div class="history-tab" data-type="解梦">🌙 解梦</div>
+    <div class="history-tab" data-type="星座">⭐ 星座</div>
+  </div>
+
+  <div class="history-list" id="history-list">
+    <div class="empty-state">
+      <span class="icon">📜</span>
+      <p>正在加载...</p>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <div class="nav-item" onclick="goTo('index.html')"><span class="nav-icon">🏠</span><span>首页</span></div>
+    <div class="nav-item" onclick="goTo('zodiac.html')"><span class="nav-icon">⭐</span><span>星座</span></div>
+    <div class="nav-item" onclick="goTo('dream.html')"><span class="nav-icon">🌙</span><span>解梦</span></div>
+    <div class="nav-item active"><span class="nav-icon">📜</span><span>记录</span></div>
+    <div class="nav-item" onclick="goTo('settings.html')"><span class="nav-icon">⚙️</span><span>设置</span></div>
+  </nav>
+</div>
+
+<!-- 详情弹窗 -->
+<div class="modal-overlay" id="modal">
+  <div class="modal-content">
+    <div class="modal-text" id="modal-text"></div>
+    <button class="modal-close" onclick="closeModal()">关闭</button>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/main.js"></script>
+<script src="js/api.js"></script>
+<script src="js/pwa.js"></script>
+<script>
+  let currentFilter = '';
+  let allReadings = [];
+
+  const TYPE_ICONS = {
+    '聊天': '💬',
+    '八字': '☯️',
+    '塔罗': '🃏',
+    '解梦': '🌙',
+    '星座': '⭐'
+  };
+
+  async function loadHistory() {
+    try {
+      const result = await HistoryAPI.list(currentFilter || null);
+      allReadings = result.readings || [];
+      renderHistory();
+    } catch (e) {
+      document.getElementById('history-list').innerHTML = `
+        <div class="empty-state">
+          <span class="icon">⚠️</span>
+          <p>加载失败：${e.message}</p>
+        </div>`;
+    }
+  }
+
+  function renderHistory() {
+    const container = document.getElementById('history-list');
+
+    if (allReadings.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <span class="icon">📜</span>
+          <p>还没有占卜记录</p>
+          <p style="margin-top:8px;">去占卜吧，结果会自动保存到这里</p>
+        </div>`;
+      return;
+    }
+
+    container.innerHTML = allReadings.map(r => {
+      const icon = TYPE_ICONS[r.type] || '🔮';
+      let preview = '';
+      try {
+        const inputObj = JSON.parse(r.input_data);
+        if (r.type === '八字') {
+          preview = `出生：${inputObj.year || ''}年${inputObj.month || ''}月${inputObj.day || ''}日`;
+        } else if (r.type === '塔罗') {
+          preview = inputObj.question || '三张牌阵';
+        } else if (r.type === '解梦') {
+          preview = inputObj.dream || '';
+        } else if (r.type === '星座') {
+          preview = inputObj.sign || '';
+        }
+      } catch (e) {
+        preview = r.input_data.substring(0, 50);
+      }
+
+      const resultPreview = r.result.substring(0, 80);
+
+      return `
+        <div class="history-item" data-id="${r.id}">
+          <div class="history-item-header">
+            <span class="history-type">${icon} ${r.type}</span>
+            <span class="history-date">${formatDate(r.created_at)}</span>
+          </div>
+          <div class="history-preview">${preview ? preview + ' — ' : ''}${resultPreview}...</div>
+          <div class="history-actions">
+            <button class="history-btn" onclick="viewDetail(${r.id})">查看详情</button>
+            <button class="history-btn delete" onclick="deleteItem(${r.id})">删除</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function viewDetail(id) {
+    const item = allReadings.find(r => r.id === id);
+    if (!item) return;
+    document.getElementById('modal-text').textContent = item.result;
+    document.getElementById('modal').classList.add('show');
+  }
+
+  function closeModal() {
+    document.getElementById('modal').classList.remove('show');
+  }
+
+  async function deleteItem(id) {
+    if (!confirm('确定要删除这条记录吗？')) return;
+    try {
+      await HistoryAPI.delete(id);
+      loadHistory();
+    } catch (e) {
+      alert('删除失败：' + e.message);
+    }
+  }
+
+  function formatDate(dateStr) {
+    // SQLite 存储的是 UTC 时间，需显式按 UTC 解析
+    const d = new Date(dateStr.endsWith('Z') || dateStr.endsWith('UTC') ? dateStr : dateStr + ' UTC');
+    const now = new Date();
+    const diff = now - d;
+
+    if (diff < 60000) return '刚刚';
+    if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
+    if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
+    return `${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+
+  // Tab 切换
+  document.getElementById('history-tabs').addEventListener('click', (e) => {
+    const tab = e.target.closest('.history-tab');
+    if (!tab) return;
+    document.querySelectorAll('.history-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentFilter = tab.dataset.type;
+    renderHistory();
+  });
+
+  // 点击遮罩关闭
+  document.getElementById('modal').addEventListener('click', (e) => {
+    if (e.target.id === 'modal') closeModal();
+  });
+
+  // 检查登录
+  if (!Auth.isLoggedIn()) {
+    goTo('auth.html');
+  } else {
+    loadHistory();
+  }
+</script>
+</body>
+</html>

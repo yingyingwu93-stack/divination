@@ -1,0 +1,1 @@
+const fs=require("fs"); const p="D:/桌面/占卜/css/style.css"; const a=process.argv[1]; fs.appendFileSync(p,a,"utf8"); console.log("done");

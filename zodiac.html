@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#4c1d95">
+  <title>星座分析 - 占卜</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="page" id="page-zodiac">
+  <div class="sub-header">
+    <div class="stars-bg" id="stars-zodiac"></div>
+    <div class="sub-header-top">
+      <button class="back-btn" onclick="goBack()">‹</button>
+      <span class="sub-header-title">⭐ 星座分析</span>
+    </div>
+  </div>
+
+  <div class="page-container">
+    <div class="zodiac-selector card">
+      <label>📅 选择您的出生日期</label>
+      <div class="date-input-row">
+        <input type="date" id="birth-date" value="1995-06-15">
+        <button class="confirm-btn" bindtap="analyzeZodiac()" onclick="analyzeZodiac()">开始分析</button>
+      </div>
+    </div>
+
+    <div class="zodiac-result card" id="zodiac-result" style="display:none;">
+      <div class="zr-icon" id="zr-icon"></div>
+      <div class="zr-name" id="zr-name"></div>
+      <div class="zr-date" id="zr-date"></div>
+      <div class="zr-elem" id="zr-elem"></div>
+    </div>
+
+    <div class="tabs" id="zodiac-tabs">
+      <div class="tab active" data-tab="personality">性格特质</div>
+      <div class="tab" data-tab="fortune">今日运势</div>
+      <div class="tab" data-tab="love">爱情婚姻</div>
+      <div class="tab" data-tab="career">事业财运</div>
+    </div>
+
+    <div class="tab-content active" id="tab-personality"></div>
+    <div class="tab-content" id="tab-fortune"></div>
+    <div class="tab-content" id="tab-love"></div>
+    <div class="tab-content" id="tab-career"></div>
+  </div>
+
+  <nav class="bottom-nav">
+    <div class="nav-item" onclick="goTo('index.html')"><span class="nav-icon">🏠</span><span>首页</span></div>
+    <div class="nav-item active"><span class="nav-icon">⭐</span><span>星座</span></div>
+    <div class="nav-item" onclick="goTo('dream.html')"><span class="nav-icon">🌙</span><span>解梦</span></div>
+    <div class="nav-item" onclick="goTo('settings.html')"><span class="nav-icon">⚙️</span><span>设置</span></div>
+  </nav>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/data.js"></script>
+<script src="js/main.js"></script>
+<script src="js/pwa.js"></script>
+<script>
+  requireLogin().then(valid => { if (!valid) throw new Error('需要登录'); });
+
+  // AI 深度分析
+  async function aiZodiacAnalysis() {
+    const dateStr = document.getElementById('birth-date').value;
+    if (!dateStr) return alert('请选择出生日期');
+
+    const zodiac = getZodiacByDate(dateStr);
+    const aiSection = document.getElementById('zodiac-ai-analysis');
+    aiSection.style.display = 'block';
+    aiSection.innerHTML = '<div class="loading-text">⭐ 正在生成 AI 深度分析...</div>';
+    aiSection.scrollIntoView({ behavior: 'smooth' });
+
+    const formatText = text => text.replace(/\n/g, '<br>');
+
+    try {
+      let aiResult = '';
+      let zodiacRenderTimer = null;
+      let zodiacPendingText = '';
+      const zodiacContainer = document.createElement('div');
+      zodiacContainer.className = 'ai-reading';
+      aiSection.innerHTML = '';
+      aiSection.appendChild(zodiacContainer);
+      const formatBrZodiac = text => text.replace(/\n/g, '<br>');
+      const doZodiacRender = () => {
+        zodiacContainer.innerHTML = formatBrZodiac(zodiacPendingText);
+        zodiacRenderTimer = null;
+      };
+      await streamZodiacAnalysis(zodiac.name, dateStr, zodiac.element, (fullText) => {
+        aiResult = fullText;
+        zodiacPendingText = fullText;
+        if (!zodiacRenderTimer) {
+          zodiacRenderTimer = setTimeout(doZodiacRender, 250);
+        }
+      });
+      if (zodiacRenderTimer) {
+        clearTimeout(zodiacRenderTimer);
+        doZodiacRender();
+      }
+      // 保存到历史
+      await HistoryAPI.save('星座', JSON.stringify({ sign: zodiac.name, birth_date: dateStr }), aiResult);
+    } catch (error) {
+      renderError(aiSection, `AI 分析失败：${error.message}`, 'aiZodiacAnalysis()');
+    }
+  }
+
+  // 修改原有 analyzeZodiac，加入 AI 按钮
+  const originalAnalyze = analyzeZodiac;
+  analyzeZodiac = function() {
+    originalAnalyze();
+    // 添加 AI 深度分析按钮
+    const aiSection = document.getElementById('zodiac-ai-analysis');
+    if (!aiSection) {
+      const container = document.querySelector('.page-container');
+      const div = document.createElement('div');
+      div.id = 'zodiac-ai-analysis';
+      div.style.display = 'none';
+      container.appendChild(div);
+    }
+    setTimeout(aiZodiacAnalysis, 500);
+  };
+
+  initZodiacPage();
+</script>
+</body>
+</html>
