@@ -2,6 +2,10 @@
 
 基于 AI 的传统文化占卜平台，支持八字命理、塔罗牌、周公解梦、星座分析。
 
+<p align="center">
+  <img src="docs/screenshot.png" width="320" alt="占卜平台首页">
+</p>
+
 ## ✨ 功能特性
 
 | 模块 | 功能 | AI 分析 |
