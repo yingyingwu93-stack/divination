@@ -6,6 +6,8 @@
   <img src="docs/screenshot.png" width="320" alt="占卜平台首页">
 </p>
 
+▶️ [演示视频](docs/demo.mp4)（约 2 分 25 秒）
+
 ## ✨ 功能特性
 
 | 模块 | 功能 | AI 分析 |
