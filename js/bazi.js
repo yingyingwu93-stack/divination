@@ -1,9 +1,14 @@
-const heavenlyStems = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
-const earthlyBranches = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
-const stemElement = {'甲':'木','乙':'木','丙':'火','丁':'火','戊':'土','己':'土','庚':'金','辛':'金','壬':'水','癸':'水'};
-const branchElement = {'子':'水','丑':'土','寅':'木','卯':'木','辰':'土','巳':'火','午':'火','未':'土','申':'金','酉':'金','戌':'土','亥':'水'};
-const stemYang = {'甲':true,'乙':false,'丙':true,'丁':false,'戊':true,'己':false,'庚':true,'辛':false,'壬':true,'癸':false};
-const zodiacAnimals = ['鼠','牛','虎','兔','龙','蛇','马','羊','猴','鸡','狗','猪'];
+/* ========== 八字排盘（后端引擎 + AI 解读） ========== */
+
+const BAZI_HOURS = [
+  { label: '早子时(00-01)', hour: 0 }, { label: '丑时(01-03)', hour: 1 },
+  { label: '寅时(03-05)', hour: 3 }, { label: '卯时(05-07)', hour: 5 },
+  { label: '辰时(07-09)', hour: 7 }, { label: '巳时(09-11)', hour: 9 },
+  { label: '午时(11-13)', hour: 12 }, { label: '未时(13-15)', hour: 13 },
+  { label: '申时(15-17)', hour: 15 }, { label: '酉时(17-19)', hour: 17 },
+  { label: '戌时(19-21)', hour: 19 }, { label: '亥时(21-23)', hour: 21 },
+  { label: '晚子时(23-24)', hour: 23 }
+];
 
 function initBazi() {
   createStars('stars-bazi');
@@ -14,102 +19,204 @@ function fillBaziForm() {
   document.getElementById('bazi-year').value = 1995;
   document.getElementById('bazi-month').value = 6;
   document.getElementById('bazi-day').value = 15;
+  document.getElementById('bazi-minute').value = 0;
+  document.getElementById('bazi-gender').value = 'male';
+
+  // 有保存过的出生日期时自动回填
+  const saved = localStorage.getItem('zhanbu_birth_date') ||
+    (Auth.getUser() && Auth.getUser().birth_date) || '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(saved)) {
+    const [y, m, d] = saved.split('-').map(Number);
+    document.getElementById('bazi-year').value = y;
+    document.getElementById('bazi-month').value = m;
+    document.getElementById('bazi-day').value = d;
+  }
 
   const hourSel = document.getElementById('bazi-hour');
-  const hours = ['子时(23-01)','丑时(01-03)','寅时(03-05)','卯时(05-07)','辰时(07-09)','巳时(09-11)','午时(11-13)','未时(13-15)','申时(15-17)','酉时(17-19)','戌时(19-21)','亥时(21-23)'];
-  hours.forEach((h, i) => { hourSel.innerHTML += `<option value="${i}" ${i===6?'selected':''}>${h}</option>`; });
+  hourSel.innerHTML = BAZI_HOURS.map(h =>
+    `<option value="${h.hour}" ${h.hour === 12 ? 'selected' : ''}>${h.label}</option>`
+  ).join('');
+
+  const provinceSel = document.getElementById('bazi-province');
+  provinceSel.innerHTML = BAZI_REGIONS.map((r, i) =>
+    `<option value="${r.name}" ${i === 0 ? 'selected' : ''}>${r.name}</option>`
+  ).join('');
+  updateCityOptions(BAZI_REGIONS[0].name);
+
+  provinceSel.addEventListener('change', () => updateCityOptions(provinceSel.value));
+  document.getElementById('bazi-city').addEventListener('change', () => {
+    const lng = parseFloat(document.getElementById('bazi-city').value);
+    if (!isNaN(lng)) document.getElementById('bazi-longitude').value = lng;
+  });
+}
+
+function updateCityOptions(provinceName) {
+  const region = BAZI_REGIONS.find(r => r.name === provinceName) || BAZI_REGIONS[0];
+  const citySel = document.getElementById('bazi-city');
+  citySel.innerHTML = region.cities.map(([name, lng]) =>
+    `<option value="${lng}">${name}</option>`
+  ).join('');
+  document.getElementById('bazi-longitude').value = region.cities[0][1];
+}
+
+function getCityName() {
+  const province = document.getElementById('bazi-province');
+  const city = document.getElementById('bazi-city');
+  return `${province.value}·${city.options[city.selectedIndex].textContent}`;
 }
 
 async function calculateBazi() {
-  const year = parseInt(document.getElementById('bazi-year').value);
-  const month = parseInt(document.getElementById('bazi-month').value);
-  const day = parseInt(document.getElementById('bazi-day').value);
-  const hour = parseInt(document.getElementById('bazi-hour').value);
+  const payload = {
+    year: parseInt(document.getElementById('bazi-year').value),
+    month: parseInt(document.getElementById('bazi-month').value),
+    day: parseInt(document.getElementById('bazi-day').value),
+    hour: parseInt(document.getElementById('bazi-hour').value),
+    minute: parseInt(document.getElementById('bazi-minute').value) || 0,
+    longitude: parseFloat(document.getElementById('bazi-longitude').value),
+    gender: document.getElementById('bazi-gender').value,
+    location: getCityName()
+  };
 
-  const yearStem = heavenlyStems[(year - 4) % 10];
-  const yearBranch = earthlyBranches[(year - 4) % 12];
+  if (!payload.year || !payload.month || !payload.day) {
+    alert('请填写完整的出生日期');
+    return;
+  }
+  if (isNaN(payload.longitude) || payload.longitude < 70 || payload.longitude > 140) {
+    alert('请输入有效的出生地经度（70-140）');
+    return;
+  }
 
-  const monthStemBase = [2,4,6,8,0,2,4,6,8,0];
-  const yearStemIdx = heavenlyStems.indexOf(yearStem);
-  const baseStem = monthStemBase[yearStemIdx];
-  const monthStem = heavenlyStems[(baseStem + month - 1) % 10];
-  const monthBranch = earthlyBranches[(month + 1) % 12];
+  const btn = document.querySelector('.bazi-start-btn');
+  btn.disabled = true;
+  btn.textContent = '☯️ 正在排盘...';
 
-  const baseDate = new Date(1900, 0, 1);
-  const targetDate = new Date(year, month - 1, day);
-  const dayDiff = Math.floor((targetDate - baseDate) / 86400000);
-  const dayStem = heavenlyStems[(dayDiff + 10) % 10];
-  const dayBranch = earthlyBranches[(dayDiff + 10) % 12];
+  try {
+    const res = await apiRequest('/bazi/calc', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || '排盘失败');
 
-  const hourStemBase = [8,0,2,4,6,8,0,2,4,6,8,0];
-  const dayStemIdx = heavenlyStems.indexOf(dayStem);
-  const hBase = hourStemBase[dayStemIdx % 10];
-  const hourStem = heavenlyStems[(hBase + hour) % 10];
-  const hourBranch = earthlyBranches[hour];
+    renderBazi(json.data);
+    document.getElementById('bazi-result').classList.add('show');
+    document.getElementById('bazi-result').scrollIntoView({ behavior: 'smooth' });
 
-  const pillars = [
-    { label: '年柱', heaven: yearStem, branch: yearBranch },
-    { label: '月柱', heaven: monthStem, branch: monthBranch },
-    { label: '日柱', heaven: dayStem, branch: dayBranch },
-    { label: '时柱', heaven: hourStem, branch: hourBranch }
-  ];
+    // 保存出生日期，供首页和星座页默认使用
+    const birthDate = `${payload.year}-${String(payload.month).padStart(2, '0')}-${String(payload.day).padStart(2, '0')}`;
+    saveBirthDate(birthDate);
 
-  const elemCount = {'木':0,'火':0,'土':0,'金':0,'水':0};
-  pillars.forEach(p => { elemCount[stemElement[p.heaven]]++; elemCount[branchElement[p.branch]]++; });
+    runBaziAI(json.data)
+      .then(text => saveBaziReading(json.data, text))
+      .then(readingId => {
+        if (readingId && typeof initFollowup === 'function') {
+          initFollowup(readingId, {
+            system: '你是一位精通八字命理的命理师。用户正在追问刚才的命盘解读，请结合上下文回答，语言通俗易懂，不要使用 markdown。',
+            placeholder: '继续追问这次命盘解读...'
+          });
+        }
+      });
+  } catch (error) {
+    alert('排盘失败：' + error.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '☯️ 开始排盘';
+  }
+}
 
-  const dayMaster = dayStem;
-  const element = stemElement[dayMaster];
-  const isYang = stemYang[dayMaster];
-  const animal = zodiacAnimals[(year - 4) % 12];
-  const yinYang = isYang ? '阳' : '阴';
+function renderBazi(data) {
+  const st = data.solar_time;
+  document.getElementById('bazi-solar-info').innerHTML =
+    `🕐 北京时间 ${st.local} ｜ 真太阳时 ${st.true_solar}` +
+    `<br>经度校正 ${st.longitude_correction_min} 分钟 · 均时差 ${st.equation_of_time_min} 分钟`;
 
-  const sorted = Object.entries(elemCount).sort((a, b) => b[1] - a[1]);
-  const strongest = sorted[0][0];
-  const weakest = sorted[sorted.length - 1][0];
-
-  document.getElementById('pillars').innerHTML = pillars.map(p => `
+  document.getElementById('pillars').innerHTML = data.pillars.map(p => `
     <div class="pillar">
       <div class="pillar-label">${p.label}</div>
-      <div class="pillar-heaven">${p.heaven}</div>
+      <div class="pillar-ten-god">${p.ten_god}</div>
+      <div class="pillar-heaven">${p.stem}</div>
       <div class="pillar-earth">${p.branch}</div>
+      <div class="pillar-nayin">${p.nayin}</div>
+      <div class="pillar-hidden">
+        ${p.hidden.map(h => `<span class="hidden-stem">${h.stem}·${h.ten_god}</span>`).join('')}
+      </div>
     </div>
   `).join('');
 
-  const max = Math.max(...Object.values(elemCount));
-  const elemIcons = {'木':'🌿','火':'🔥','土':'⛰️','金':'⚔️','水':'💧'};
-  document.getElementById('elements-chart').innerHTML = Object.entries(elemCount).map(([name, count]) => `
-    <div class="elem-row">
-      <text class="elem-icon">${elemIcons[name]}</text>
-      <view class="elem-bar-bg"><view class="elem-bar-fill" style="width:${(count/max)*100}%"></view></view>
-      <text class="elem-count">${count}个</text>
-    </div>
-  `).join('');
-
-  document.getElementById('bazi-analysis').innerHTML = `
-    <div class="analysis-card"><h4>☯️ 命盘概览</h4><p>日主为<span class="highlight">${dayMaster}（${element}·${yinYang}）</span>，生肖属<span class="highlight">${animal}</span>。五行以<span class="highlight">${strongest}</span>最旺，<span class="highlight">${weakest}</span>偏弱。</p></div>
-    <div class="analysis-card"><h4>💼 事业运势</h4><p>事业运势呈上升趋势，适合从事与${element}属性相关的工作。今年宜积极拓展人脉，把握合作机会。</p></div>
-    <div class="analysis-card"><h4>💕 婚姻感情</h4><p>感情方面运势不错，单身者有望遇到心仪对象。已婚者夫妻感情和睦，但需多沟通。</p></div>
-    <div class="analysis-card"><h4>💰 财运分析</h4><p>财运稳中有升，正财运不错。适合储蓄和稳健理财，不宜高风险投资。</p></div>
-    <div class="analysis-card"><h4>🏥 健康提醒</h4><p>整体健康状况良好，但需注意与${element}相关脏腑的保养。规律饮食，适当运动。</p></div>
+  const max = Math.max(...Object.values(data.five_elements).map(e => e.score));
+  const elemIcons = { '木': '🌿', '火': '🔥', '土': '⛰️', '金': '⚔️', '水': '💧' };
+  document.getElementById('elements-chart').innerHTML = `
+    <h4>🌊 五行力量分布</h4>
+    ${Object.entries(data.five_elements).map(([name, v]) => `
+      <div class="elem-row">
+        <span class="elem-icon">${elemIcons[name]}</span>
+        <div class="elem-bar-bg"><div class="elem-bar-fill" style="width:${max ? (v.score / max) * 100 : 0}%"></div></div>
+        <span class="elem-count">${v.percent}%</span>
+      </div>`).join('')}
   `;
 
-  document.getElementById('bazi-result').classList.add('show');
-  document.getElementById('bazi-result').scrollIntoView({ behavior: 'smooth' });
+  const tenGods = Object.entries(data.ten_gods)
+    .map(([name, count]) => `<span class="ten-god-chip">${name} × ${count}</span>`).join('');
+  const shensha = data.shensha.length
+    ? data.shensha.map(s => `<span class="shensha-chip">${s.name}·${s.pillar}</span>`).join('')
+    : '<span class="ten-god-chip">无常用神煞</span>';
 
-  // AI 命理分析
-  const aiSection = document.getElementById('bazi-ai-analysis');
-  if (!aiSection) return;
+  const dm = data.day_master;
+  const luck = data.luck;
+  const currentAge = new Date().getFullYear() - data.input.year;
 
-  const pillarsText = pillars.map(p => `${p.label}: ${p.heaven}${p.branch}`).join('，');
-  const elemText = Object.entries(elemCount).map(([k, v]) => `${k}${v}个`).join('、');
+  document.getElementById('bazi-analysis').innerHTML = `
+    <div class="analysis-card">
+      <h4>☯️ 命盘概览</h4>
+      <p>日主为<span class="highlight">${dm.stem}（${dm.element}·${dm.yin_yang}）</span>，
+      生肖属<span class="highlight">${data.zodiac}</span>。
+      五行以<span class="highlight">${data.strongest}</span>最旺，
+      <span class="highlight">${data.weakest}</span>偏弱。</p>
+    </div>
+    <div class="analysis-card">
+      <h4>🏷️ 十神分布</h4>
+      <div class="ten-god-list">${tenGods}</div>
+    </div>
+    <div class="analysis-card">
+      <h4>✨ 神煞</h4>
+      <div class="shensha-list">${shensha}</div>
+    </div>
+    <div class="luck-section">
+      <h4>🚀 大运（${luck.direction}）</h4>
+      <div class="luck-sub">起运：${luck.start_age.years} 岁 ${luck.start_age.months} 个月 ${luck.start_age.days} 天（${luck.start_year} 年）</div>
+      <div class="luck-scroll">
+        ${luck.cycles.map(c => `
+          <div class="luck-item ${currentAge >= c.start_age && currentAge < c.start_age + 10 ? 'current' : ''}">
+            <div class="luck-pillar">${c.pillar}</div>
+            <div class="luck-age">${c.start_age} 岁起</div>
+            <div class="luck-year">${c.start_year}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+  `;
+}
 
-  const prompt = `请分析以下八字：
-出生信息：${year}年${month}月${day}日，${['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'][hour]}时
-四柱：${pillarsText}
-日主：${dayMaster}（${element}·${yinYang}）
-生肖：${animal}
-五行分布：${elemText}
-五行最强：${strongest}，最弱：${weakest}
+function buildBaziPrompt(data) {
+  const pillars = data.pillars.map(p =>
+    `${p.label}：${p.stem}${p.branch}（${p.ten_god}，纳音${p.nayin}，藏干${p.hidden.map(h => h.stem).join('/')}）`
+  ).join('\n');
+  const elements = Object.entries(data.five_elements)
+    .map(([k, v]) => `${k}${v.percent}%`).join('、');
+  const luck = data.luck.cycles.map(c => `${c.start_age}岁 ${c.pillar}`).join('，');
+  const shensha = data.shensha.length
+    ? data.shensha.map(s => `${s.name}(${s.pillar})`).join('、') : '无';
+
+  return `请分析以下八字命盘：
+出生：${data.input.year}年${data.input.month}月${data.input.day}日 ${data.input.hour}时${data.input.minute}分，${data.input.location || ''}，${data.input.gender === 'male' ? '男' : '女'}
+真太阳时：${data.solar_time.true_solar}
+四柱：
+${pillars}
+日主：${data.day_master.stem}（${data.day_master.element}·${data.day_master.yin_yang}）
+生肖：${data.zodiac}
+五行力量：${elements}（${data.strongest}最旺，${data.weakest}最弱）
+十神：${Object.entries(data.ten_gods).map(([k, v]) => k + v + '个').join('、')}
+大运：${data.luck.direction}，${data.luck.start_age.years}岁起运；${luck}
+神煞：${shensha}
 
 请从以下方面详细分析：
 1. 日主强弱与格局特点
@@ -118,49 +225,75 @@ async function calculateBazi() {
 4. 婚姻感情与家庭关系
 5. 健康注意事项
 6. 五行开运建议（日常穿搭、方位、职业等）`;
+}
+
+async function runBaziAI(data) {
+  const aiSection = document.getElementById('bazi-ai-analysis');
+  if (!aiSection) return;
 
   aiSection.innerHTML = '<div class="loading-text">☯️ 正在推演命局，请稍候...</div>';
   aiSection.style.display = 'block';
 
   try {
-    let baziResult = '';
-    let baziRenderTimer = null;
-    let baziPendingText = '';
-    const formatBrBazi = text => text.replace(/\n/g, '<br>');
-    const doBaziRender = () => {
-      baziContainer.innerHTML = formatBrBazi(baziPendingText);
-      baziRenderTimer = null;
-    };
-    await getBaziAnalysis({ prompt }, (fullText) => {
-      baziResult = fullText;
-      baziPendingText = fullText;
-      if (!baziRenderTimer) {
-        baziRenderTimer = setTimeout(doBaziRender, 300);
+    let pending = '';
+    let renderedLen = 0;
+    let textEl = null;
+    let timer = null;
+
+    // 增量追加，避免每帧重建整段 DOM 导致页面重排、滚动位置跳动
+    const doRender = () => {
+      timer = null;
+      if (!textEl) {
+        aiSection.innerHTML = '';
+        textEl = document.createElement('div');
+        textEl.className = 'ai-reading bazi-ai-text';
+        aiSection.appendChild(textEl);
       }
+      const chunk = pending.slice(renderedLen);
+      if (!chunk) return;
+      renderedLen = pending.length;
+
+      // 仅当用户停留在页面底部附近时才跟随滚动，向上翻看时不打扰
+      const nearBottom = window.innerHeight + window.scrollY >=
+        document.documentElement.scrollHeight - 160;
+
+      const last = textEl.lastChild;
+      if (last && last.nodeType === 3) last.nodeValue += chunk;
+      else textEl.appendChild(document.createTextNode(chunk));
+
+      if (nearBottom) window.scrollTo(0, document.documentElement.scrollHeight);
+    };
+
+    const text = await getBaziAnalysis({ prompt: buildBaziPrompt(data) }, (fullText) => {
+      pending = fullText;
+      if (!timer) timer = setTimeout(doRender, 120);
     });
-    if (baziRenderTimer) {
-      clearTimeout(baziRenderTimer);
-      doBaziRender();
-    }
-    // 保存到历史记录
-    saveBaziReading(year, month, day, hour, baziResult);
+    if (timer) { clearTimeout(timer); }
+    doRender();
+    return text;
   } catch (error) {
     console.warn('八字 AI 分析失败:', error.message);
-    const retry = `calculateBazi()`;
-    renderError(aiSection, `AI 分析失败：${error.message}`, retry);
+    renderError(aiSection, `AI 分析失败：${error.message}`, 'calculateBazi()');
+    return data.pillars.map(p => `${p.label} ${p.stem}${p.branch}（${p.ten_god}）`).join('，');
+  }
+}
+
+async function saveBaziReading(data, aiText) {
+  try {
+    const input = {
+      year: data.input.year, month: data.input.month, day: data.input.day,
+      hour: data.input.hour, minute: data.input.minute,
+      gender: data.input.gender, location: data.input.location,
+      pillars: data.pillars.map(p => p.stem + p.branch).join(' ')
+    };
+    const data = await HistoryAPI.save('八字', JSON.stringify(input), aiText || '');
+    return data.reading_id || null;
+  } catch (e) {
+    console.warn('保存八字记录失败:', e.message);
+    return null;
   }
 }
 
 if (document.getElementById('page-bazi')) {
   requireLogin().then(valid => { if (valid) initBazi(); });
-}
-
-// 八字分析完成后保存到历史
-async function saveBaziReading(year, month, day, hour, result) {
-  try {
-    const input = JSON.stringify({ year, month, day, hour });
-    await HistoryAPI.save('八字', input, result);
-  } catch (e) {
-    console.warn('保存八字记录失败:', e.message);
-  }
 }

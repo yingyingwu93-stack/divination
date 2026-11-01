@@ -1,0 +1,17 @@
+services:
+  web:
+    build: .
+    container_name: zhanbu-web
+    ports:
+      - "5001:5001"
+    environment:
+      - LONGCAT_API_KEY=${LONGCAT_API_KEY:-}
+      - LONGCAT_API_URL=${LONGCAT_API_URL:-https://api.longcat.chat/openai/v1/chat/completions}
+      - LONGCAT_MODEL=${LONGCAT_MODEL:-LongCat-2.0}
+      - ZHANBU_SECRET_KEY=${ZHANBU_SECRET_KEY:-please-change-me}
+      - ZHANBU_PASSWORD_SALT=${ZHANBU_PASSWORD_SALT:-please-change-me-too}
+      - FLASK_DEBUG=0
+    volumes:
+      - ./backend/data.db:/app/backend/data.db
+      - ./backend/knowledge:/app/backend/knowledge
+    restart: unless-stopped

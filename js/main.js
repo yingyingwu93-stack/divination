@@ -1,6 +1,44 @@
 function goTo(url) { window.location.href = url; }
 function goBack() { if (window.history.length > 1) { window.history.back(); } else { window.location.href = 'index.html'; } }
 
+/* 导航栏「命理」入口：弹出八字 / 紫微选择 */
+function openMingliMenu(event) {
+  if (event) { event.preventDefault(); event.stopPropagation(); }
+
+  // 已在命理相关页面时不重复弹出
+  if (document.querySelector('.mingli-mask')) return;
+
+  const mask = document.createElement('div');
+  mask.className = 'mingli-mask';
+  mask.innerHTML = `
+    <div class="mingli-sheet">
+      <div class="mingli-sheet-title">选择命理方式</div>
+      <div class="mingli-options">
+        <div class="mingli-option" onclick="goTo('bazi.html')">
+          <span class="mo-icon">☯️</span>
+          <span>八字命理</span>
+          <span class="mo-desc">四柱 · 五行 · 大运</span>
+        </div>
+        <div class="mingli-option" onclick="goTo('ziwei.html')">
+          <span class="mo-icon">🔮</span>
+          <span>紫微斗数</span>
+          <span class="mo-desc">十二宫 · 星曜 · 四化</span>
+        </div>
+      </div>
+      <button class="mingli-close" onclick="closeMingliMenu()">取消</button>
+    </div>`;
+
+  mask.addEventListener('click', (e) => {
+    if (e.target === mask) closeMingliMenu();
+  });
+  document.body.appendChild(mask);
+}
+
+function closeMingliMenu() {
+  const mask = document.querySelector('.mingli-mask');
+  if (mask) mask.remove();
+}
+
 // 验证 Token 是否有效（后端校验）
 async function validateToken() {
   if (!Auth.isLoggedIn()) return false;
@@ -31,27 +69,13 @@ function renderError(container, message, retryFn) {
   container.innerHTML = `
     <div class="error-box" style="text-align:center;padding:30px 20px;">
       <div style="font-size:32px;margin-bottom:12px;">⚠️</div>
-      <p style="color:var(--text-muted);font-size:14px;margin-bottom:16px;line-height:1.6;">${message}</p>
+      <p style="color:var(--text-muted);font-size:14px;margin-bottom:16px;line-height:1.6;">${escapeHtml(message)}</p>
       <button onclick="${retryFn}" style="padding:10px 28px;border-radius:20px;background:linear-gradient(135deg,var(--primary),var(--primary-light));color:white;border:none;font-size:14px;cursor:pointer;">
         🔄 重试
       </button>
     </div>`;
 }
 
-// 更新底部导航的用户状态
-function updateNavUserState() {
-  const user = Auth.getUser();
-  const navBazi = document.querySelector('.nav-item[onclick*="bazi.html"]');
-  if (navBazi && user) {
-    navBazi.innerHTML = '<span class="nav-icon">👤</span><span>' + user.username + '</span>';
-    navBazi.onclick = null;
-    navBazi.addEventListener('click', () => {
-      if (confirm('确定要退出登录吗？')) {
-        UserAPI.logout();
-      }
-    });
-  }
-}
 
 function createStars(containerId) {
   const container = document.getElementById(containerId);
@@ -70,7 +94,7 @@ function createStars(containerId) {
   }
 
   // 流星（仅在大尺寸 header 中）
-  if (containerId === 'stars-home' || containerId === 'stars-zodiac' || containerId === 'stars-tarot' || containerId === 'stars-bazi') {
+  if (containerId === 'stars-home' || containerId === 'stars-zodiac' || containerId === 'stars-tarot' || containerId === 'stars-bazi' || containerId === 'stars-ziwei') {
     for (let i = 0; i < 3; i++) {
       const meteor = document.createElement('div');
       meteor.className = 'meteor';
@@ -91,65 +115,159 @@ function createStars(containerId) {
   container.appendChild(aurora2);
 }
 
-function renderZodiacScroll() {
+function zodiacCardHtml(zodiac, score) {
+  return `
+    <div class="zodiac-item" onclick="goTo('zodiac.html?sign=${encodeURIComponent(zodiac.name)}')">
+      <div class="z-icon">${zodiac.icon}</div>
+      <div class="z-name">${zodiac.name}</div>
+      <div class="z-date">${zodiac.date}</div>
+      <div class="z-score"><span>${score}</span>分</div>
+    </div>`;
+}
+
+async function renderZodiacScroll() {
   const container = document.getElementById('zodiac-scroll');
   if (!container) return;
-  container.innerHTML = zodiacSigns.map(z => `
-    <div class="zodiac-item" onclick="goTo('zodiac.html')">
-      <div class="z-icon">${z.icon}</div>
-      <div class="z-name">${z.name}</div>
-      <div class="z-date">${z.date}</div>
-      <div class="z-score"><span>${75 + Math.floor(Math.random() * 20)}</span>分</div>
-    </div>
-  `).join('');
+
+  // 先占位，再拉取真实的今日运势，保证与详情页分数一致
+  container.innerHTML = zodiacSigns.map(z => zodiacCardHtml(z, '—')).join('');
+
+  try {
+    const res = await apiRequest('/fortune/overview?period=day');
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || '加载失败');
+
+    const scores = {};
+    (data.items || []).forEach(item => { scores[item.sign] = item.overall; });
+    container.innerHTML = zodiacSigns.map(z =>
+      zodiacCardHtml(z, scores[z.name] !== undefined ? scores[z.name] : '—')
+    ).join('');
+  } catch (e) {
+    console.warn('首页运势加载失败:', e.message);
+  }
 }
 
-function renderHomeArticles() {
+const DREAM_ICONS = {
+  '动物': '🐾', '植物': '🌿', '人物': '👤', '情感': '💗',
+  '场景': '🎬', '物品': '🎁', '自然': '🌦️', '身体': '🫀',
+  '鬼神': '👻', '建筑': '🏛️', '交通': '🚗', '数字': '🔢', '其他': '✨'
+};
+
+function renderDreamItem(d) {
+  const icon = DREAM_ICONS[d.category] || '🌙';
+  return `
+    <div class="dream-item" onclick="this.classList.toggle('open')">
+      <div class="dream-item-header">
+        <span class="d-icon">${icon}</span>
+        <span class="d-title">${d.title}</span>
+        <span class="d-arrow">▼</span>
+      </div>
+      <div class="dream-item-body">
+        <p><strong>传统解梦：</strong>${d.traditional || ''}</p>
+        <p style="margin-top:8px;"><strong>心理分析：</strong>${d.psychology || ''}</p>
+      </div>
+    </div>`;
+}
+
+async function renderHomeArticles() {
   const container = document.getElementById('home-articles');
   if (!container) return;
-  container.innerHTML = dreamData.slice(0, 3).map(d => `
-    <div class="dream-item" onclick="this.classList.toggle('open')">
-      <div class="dream-item-header">
-        <span class="d-icon">${d.icon}</span>
-        <span class="d-title">${d.title}</span>
-        <span class="d-arrow">▼</span>
-      </div>
-      <div class="dream-item-body"><p>${d.content}</p></div>
-    </div>
-  `).join('');
+  try {
+    const res = await DreamAPI.list('', '', 1, 3);
+    container.innerHTML = (res.items || []).map(renderDreamItem).join('');
+  } catch (e) {
+    container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px;">解梦内容加载失败</div>';
+  }
 }
 
-let activeCategory = '全部';
-function renderCategories() {
+const dreamState = {
+  keyword: '', category: '', page: 1, pageSize: 12,
+  total: 0, loading: false
+};
+
+async function initDreamPage() {
+  createStars('stars-dream');
+  await loadDreamCategories();
+  await loadDreamList(true);
+}
+
+async function loadDreamCategories() {
   const container = document.getElementById('cat-tags');
   if (!container) return;
-  container.innerHTML = dreamCategories.map(c => `
-    <span class="cat-tag ${c === activeCategory ? 'active' : ''}" onclick="selectCategory('${c}')">${c}</span>
-  `).join('');
+  try {
+    const res = await DreamAPI.categories();
+    const categories = [{ name: '全部', count: 0 }].concat(res.categories || []);
+    container.innerHTML = categories.map(c => `
+      <span class="cat-tag ${c.name === (dreamState.category || '全部') ? 'active' : ''}"
+            onclick="selectCategory('${c.name}')">${c.name}</span>
+    `).join('');
+  } catch (e) {
+    console.warn('加载解梦分类失败:', e.message);
+  }
 }
-function selectCategory(cat) { activeCategory = cat; renderCategories(); renderDreamList(); }
 
-function renderDreamList(filter) {
-  const container = document.getElementById('dream-list');
-  if (!container) return;
-  let data = dreamData;
-  if (activeCategory !== '全部') data = data.filter(d => d.cat === activeCategory);
-  if (filter) data = data.filter(d => d.title.includes(filter) || d.content.includes(filter));
-  if (data.length === 0) { container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);">暂无相关梦境解读</div>'; return; }
-  container.innerHTML = data.map(d => `
-    <div class="dream-item" onclick="this.classList.toggle('open')">
-      <div class="dream-item-header">
-        <span class="d-icon">${d.icon}</span>
-        <span class="d-title">${d.title}</span>
-        <span class="d-arrow">▼</span>
-      </div>
-      <div class="dream-item-body"><p>${d.content}</p></div>
-    </div>
-  `).join('');
+function selectCategory(cat) {
+  dreamState.category = cat === '全部' ? '' : cat;
+  document.querySelectorAll('#cat-tags .cat-tag').forEach(el => {
+    el.classList.toggle('active', el.textContent.trim() === cat);
+  });
+  loadDreamList(true);
 }
+
+async function loadDreamList(reset = false) {
+  const container = document.getElementById('dream-list');
+  if (!container || dreamState.loading) return;
+
+  dreamState.loading = true;
+  if (reset) {
+    dreamState.page = 1;
+    container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted);">正在加载...</div>';
+  }
+
+  try {
+    const res = await DreamAPI.list(
+      dreamState.keyword, dreamState.category, dreamState.page, dreamState.pageSize
+    );
+    if (!res.success) throw new Error(res.error || '加载失败');
+
+    dreamState.total = res.total;
+    const items = res.items || [];
+
+    if (reset) container.innerHTML = '';
+    if (items.length === 0 && reset) {
+      container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);">暂无相关梦境解读</div>';
+    } else {
+      container.insertAdjacentHTML('beforeend', items.map(renderDreamItem).join(''));
+    }
+
+    if (items.length > 0) dreamState.page += 1;
+
+    const moreBtn = document.getElementById('dream-load-more');
+    if (moreBtn) {
+      const shown = container.querySelectorAll('.dream-item').length;
+      moreBtn.style.display = shown < dreamState.total ? 'block' : 'none';
+      moreBtn.textContent = `加载更多（${shown}/${dreamState.total}）`;
+    }
+  } catch (e) {
+    if (reset) {
+      container.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-muted);">加载失败：${e.message}</div>`;
+    }
+  } finally {
+    dreamState.loading = false;
+  }
+}
+
+let dreamSearchTimer = null;
 function filterDreams() {
-  const keyword = document.getElementById('dream-search').value.trim();
-  renderDreamList(keyword);
+  clearTimeout(dreamSearchTimer);
+  dreamSearchTimer = setTimeout(() => {
+    dreamState.keyword = document.getElementById('dream-search').value.trim();
+    loadDreamList(true);
+  }, 300);
+}
+
+function loadMoreDreams() {
+  loadDreamList(false);
 }
 
 function getZodiacByDate(dateStr) {
@@ -163,28 +281,143 @@ function getZodiacByDate(dateStr) {
   return zodiacSigns[0];
 }
 
-function analyzeZodiac() {
+function analyzeZodiac(saveProfile = true) {
   const dateStr = document.getElementById('birth-date').value;
   if (!dateStr) return alert('请选择出生日期');
   const zodiac = getZodiacByDate(dateStr);
+  localStorage.setItem('zhanbu_sign', zodiac.name);
+  if (saveProfile) saveBirthDate(dateStr);
+  renderZodiacDetail(zodiac);
+}
+
+async function saveBirthDate(dateStr) {
+  if (!dateStr) return;
+  localStorage.setItem('zhanbu_birth_date', dateStr);
+
+  if (!Auth.isLoggedIn()) return;
+  try {
+    const res = await apiRequest('/user/birth', {
+      method: 'PUT',
+      body: JSON.stringify({ birth_date: dateStr })
+    });
+    const data = await res.json();
+    if (data.success) {
+      const user = Auth.getUser();
+      if (user) {
+        user.birth_date = dateStr;
+        Auth.setUser(user);
+      }
+    }
+  } catch (e) {
+    console.warn('保存出生日期失败:', e.message);
+  }
+}
+
+function showZodiacBySign(signName, savedBirthDate = '') {
+  const zodiac = zodiacSigns.find(z => z.name === signName);
+  if (!zodiac) return false;
+
+  const dateInput = document.getElementById('birth-date');
+  let displayDate = '';
+
+  // 如果保存的生日正好属于该星座，优先显示用户上次输入的日期
+  if (/^\d{4}-\d{2}-\d{2}$/.test(savedBirthDate)) {
+    try {
+      if (getZodiacByDate(savedBirthDate).name === zodiac.name) {
+        displayDate = savedBirthDate;
+      }
+    } catch (e) {
+      console.warn('出生日期解析失败:', e.message);
+    }
+  }
+
+  // 否则使用该星座范围内的代表性日期，供 AI 分析使用
+  if (!displayDate) {
+    const [monthDay] = zodiac.date.split(' - ');
+    const [month, day] = monthDay.split('.').map(Number);
+    displayDate = `2000-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
+
+  if (dateInput) dateInput.value = displayDate;
+
+  localStorage.setItem('zhanbu_sign', zodiac.name);
+  renderZodiacDetail(zodiac);
+  return true;
+}
+
+function renderZodiacDetail(zodiac) {
   document.getElementById('zodiac-result').style.display = 'block';
   document.getElementById('zr-icon').textContent = zodiac.icon;
   document.getElementById('zr-name').textContent = zodiac.name;
   document.getElementById('zr-date').textContent = zodiac.date;
   document.getElementById('zr-elem').textContent = zodiac.element;
+
   const traits = Object.entries(zodiac.traits).map(([name, val]) => `
     <div class="stat-row">
       <div class="stat-label"><span class="stat-name">${name}</span><span class="stat-val">${val}%</span></div>
       <div class="stat-bar"><div class="stat-fill" style="width:${val}%"></div></div>
     </div>
   `).join('');
+
   const fortune = getZodiacFortune(zodiac.name);
   document.getElementById('tab-personality').innerHTML = `
     <div class="fortune-card"><h4>🔍 性格概述</h4><p>${fortune.personality.desc}</p></div>
     <div class="fortune-card"><h4>📊 特质指数</h4>${traits}</div>`;
-  document.getElementById('tab-fortune').innerHTML = `<div class="fortune-card"><h4>🌟 综合运势</h4><p>${fortune.fortune.desc}</p></div>`;
   document.getElementById('tab-love').innerHTML = `<div class="fortune-card"><h4>💕 桃花运势</h4><p>${fortune.love.desc}</p></div>`;
   document.getElementById('tab-career').innerHTML = `<div class="fortune-card"><h4>💼 事业运势</h4><p>${fortune.career.desc}</p></div>`;
+
+  loadZodiacPeriods(zodiac.name);
+
+  if (typeof aiZodiacAnalysis === 'function') {
+    setTimeout(() => aiZodiacAnalysis(zodiac), 400);
+  }
+}
+
+async function loadZodiacPeriods(sign) {
+  const periods = [
+    ['today', 'day', '今日'],
+    ['week', 'week', '本周'],
+    ['month', 'month', '本月'],
+    ['year', 'year', '今年']
+  ];
+
+  periods.forEach(async ([tabKey, period, label]) => {
+    const container = document.getElementById('tab-' + tabKey);
+    if (!container) return;
+    container.innerHTML = `<div class="loading-text">正在生成${label}运势...</div>`;
+    try {
+      const res = await apiRequest(`/fortune/period?sign=${encodeURIComponent(sign)}&period=${period}`);
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || '加载失败');
+      renderPeriodFortune(container, data.data);
+    } catch (e) {
+      container.innerHTML = `<div class="fortune-card"><p>${label}运势加载失败：${escapeHtml(e.message)}</p></div>`;
+    }
+  });
+}
+
+function renderPeriodFortune(container, data) {
+  const labels = { love: '爱情', career: '事业', wealth: '财运', health: '健康' };
+  const scoreRows = Object.entries(data.scores).map(([key, val]) => `
+    <div class="stat-row">
+      <div class="stat-label"><span class="stat-name">${labels[key] || key}</span><span class="stat-val">${val}%</span></div>
+      <div class="stat-bar"><div class="stat-fill" style="width:${val}%"></div></div>
+    </div>`).join('');
+
+  container.innerHTML = `
+    <div class="fortune-card period-card">
+      <div class="period-head">
+        <div>
+          <div class="period-title">${data.period_label}运势</div>
+          <div class="period-range">${data.range}</div>
+        </div>
+        <div class="period-score"><span>${data.overall}</span><small>分</small></div>
+      </div>
+      <p>${escapeHtml(data.summary)}</p>
+      <div class="period-scores">${scoreRows}</div>
+      <div class="period-lucky">🍀 幸运色：${data.lucky_color}　🔢 幸运数字：${data.lucky_number}</div>
+      <ul class="period-advice">${data.advice.map(a => `<li>${escapeHtml(a)}</li>`).join('')}</ul>
+    </div>`;
 }
 
 function initTabs() {
@@ -200,18 +433,206 @@ function initTabs() {
   });
 }
 
-function initZodiacPage() { createStars('stars-zodiac'); initTabs(); analyzeZodiac(); }
+async function initZodiacPage() {
+  createStars('stars-zodiac');
+  initTabs();
+
+  // 先读取已保存的出生日期
+  let saved = localStorage.getItem('zhanbu_birth_date') ||
+    (Auth.getUser() && Auth.getUser().birth_date) || '';
+
+  if (!saved && Auth.isLoggedIn()) {
+    try {
+      const res = await apiRequest('/user');
+      const data = await res.json();
+      if (data.success && data.user.birth_date) {
+        saved = data.user.birth_date;
+      }
+    } catch (e) {
+      console.warn('读取出生日期失败:', e.message);
+    }
+  }
+
+  if (saved) localStorage.setItem('zhanbu_birth_date', saved);
+
+  const sign = new URLSearchParams(window.location.search).get('sign');
+  if (sign && showZodiacBySign(sign, saved)) {
+    // 从首页星座卡片进入时，默认展示今日运势
+    const todayTab = document.querySelector('.tab[data-tab="today"]');
+    if (todayTab) todayTab.click();
+    return;
+  }
+
+  const dateInput = document.getElementById('birth-date');
+  if (saved && dateInput) dateInput.value = saved;
+
+  analyzeZodiac(false);
+}
+
+/* ========== 首页：我的今日运势 + 最近记录 ========== */
+async function renderMyFortune() {
+  const container = document.getElementById('my-fortune');
+  if (!container) return;
+
+  // 出生日期优先：只要用户填过生日，就默认按生日计算星座
+  let birthDate = localStorage.getItem('zhanbu_birth_date') ||
+    (Auth.getUser() && Auth.getUser().birth_date) || '';
+
+  if (!birthDate && Auth.isLoggedIn()) {
+    try {
+      const res = await apiRequest('/user');
+      const data = await res.json();
+      if (data.success && data.user.birth_date) {
+        birthDate = data.user.birth_date;
+        localStorage.setItem('zhanbu_birth_date', birthDate);
+      }
+    } catch (e) {
+      console.warn('读取出生日期失败:', e.message);
+    }
+  }
+
+  let signName = '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
+    try {
+      const zodiacByBirth = getZodiacByDate(birthDate);
+      if (zodiacByBirth) {
+        signName = zodiacByBirth.name;
+        localStorage.setItem('zhanbu_sign', signName);
+      }
+    } catch (e) {
+      console.warn('出生日期解析失败:', e.message);
+    }
+  }
+
+  if (!signName) signName = localStorage.getItem('zhanbu_sign') || '';
+
+  if (!signName) {
+    container.innerHTML = `
+      <div class="my-fortune-setup" onclick="goTo('zodiac.html')">
+        <div class="my-fortune-icon">✨</div>
+        <div class="my-fortune-info">
+          <div class="my-fortune-name">设置你的星座</div>
+          <div class="my-fortune-date">输入出生日期，查看专属今日运势</div>
+        </div>
+        <span class="my-fortune-arrow">›</span>
+      </div>`;
+    return;
+  }
+
+  const zodiac = zodiacSigns.find(z => z.name === signName);
+  if (!zodiac) return;
+
+  container.innerHTML = '<div class="my-fortune-loading">正在获取今日运势...</div>';
+  try {
+    const res = await apiRequest(`/fortune/period?sign=${encodeURIComponent(signName)}&period=day`);
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || '加载失败');
+    const f = data.data;
+
+    container.innerHTML = `
+      <div class="my-fortune-main" onclick="goTo('zodiac.html?sign=${encodeURIComponent(signName)}')">
+        <div class="my-fortune-head">
+          <div class="my-fortune-icon">${zodiac.icon}</div>
+          <div class="my-fortune-info">
+            <div class="my-fortune-name">${signName}<small>今日运势</small></div>
+            <div class="my-fortune-date">${f.range}</div>
+          </div>
+          <div class="my-fortune-score"><span>${f.overall}</span><small>分</small></div>
+        </div>
+        <p class="my-fortune-summary">${escapeHtml(f.summary)}</p>
+        <div class="my-fortune-meta">🍀 幸运色 ${f.lucky_color}　🔢 幸运数字 ${f.lucky_number}</div>
+      </div>`;
+  } catch (e) {
+    container.innerHTML = `
+      <div class="my-fortune-setup" onclick="renderMyFortune()">
+        <div class="my-fortune-icon">⚠️</div>
+        <div class="my-fortune-info">
+          <div class="my-fortune-name">今日运势加载失败</div>
+          <div class="my-fortune-date">点击重试</div>
+        </div>
+      </div>`;
+  }
+}
+
+function getRecordPreview(r) {
+  try {
+    const obj = JSON.parse(r.input_data);
+    if (r.type === '八字') {
+      return `出生 ${obj.year || ''}年${obj.month || ''}月${obj.day || ''}日`;
+    }
+    if (r.type === '紫微斗数') {
+      const parts = [`${obj.year || ''}年${obj.month || ''}月${obj.day || ''}日`];
+      if (obj.soulPalace) parts.push(obj.soulPalace);
+      if (obj.soulStars) parts.push(obj.soulStars);
+      return parts.join(' · ');
+    }
+    if (r.type === '塔罗') {
+      return [obj.spread, obj.question].filter(Boolean).join(' · ') || '塔罗解读';
+    }
+    if (r.type === '解梦') {
+      return typeof obj === 'string' ? obj : (obj.dream || '');
+    }
+    if (r.type === '星座') {
+      return obj.sign || '星座分析';
+    }
+  } catch (e) {
+    return (r.input_data || '').slice(0, 40);
+  }
+  return (r.input_data || '').slice(0, 40);
+}
+
+function formatRelativeTime(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr.endsWith('Z') ? dateStr : dateStr + ' UTC');
+  const diff = Date.now() - d;
+  if (diff < 60000) return '刚刚';
+  if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
+  if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
+  return `${d.getMonth() + 1}月${d.getDate()}日`;
+}
+
+async function renderRecentRecords() {
+  const container = document.getElementById('recent-list');
+  if (!container) return;
+
+  container.innerHTML = '<div class="recent-empty">正在加载...</div>';
+  try {
+    const data = await HistoryAPI.list({ page: 1, pageSize: 3 });
+    if (!data.success) throw new Error(data.error || '加载失败');
+
+    const items = data.readings || [];
+    if (!items.length) {
+      container.innerHTML = '<div class="recent-empty">还没有记录，去体验一次吧</div>';
+      return;
+    }
+
+    const icons = { '聊天': '💬', '八字': '☯️', '紫微斗数': '🔮', '塔罗': '🃏', '解梦': '🌙', '星座': '⭐' };
+    container.innerHTML = items.map(r => `
+      <div class="recent-item" onclick="goTo('history.html')">
+        <span class="recent-icon">${icons[r.type] || '🔮'}</span>
+        <div class="recent-main">
+          <div class="recent-title">${escapeHtml(r.type)} · ${escapeHtml(getRecordPreview(r))}</div>
+          <div class="recent-time">${formatRelativeTime(r.created_at)}</div>
+        </div>
+        ${r.is_favorite ? '<span class="recent-fav">★</span>' : '<span class="recent-arrow">›</span>'}
+      </div>`).join('');
+  } catch (e) {
+    container.innerHTML = `<div class="recent-empty">记录加载失败：${escapeHtml(e.message)}</div>`;
+  }
+}
 
 if (document.getElementById('page-home')) {
   createStars('stars-home');
-  renderZodiacScroll();
-  renderHomeArticles();
   requireLogin().then(valid => {
-    if (valid) updateNavUserState();
+    if (valid) {
+      renderMyFortune();
+      renderZodiacScroll();
+      renderHomeArticles();
+      renderRecentRecords();
+      restoreChat();
+    }
   });
 }
-if (document.getElementById('page-dream')) { createStars('stars-dream'); }
-
 /* ========== 滚动入场动画 ========== */
 function initScrollReveal() {
   const elements = document.querySelectorAll('.feature-card, .section-title, .zodiac-selector, .dream-describe, .bazi-form, .tarot-intro, .tarot-spread');
@@ -274,7 +695,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /* ========== AI 聊天 ========== */
-const CHAT_SYSTEM = `你是一位温暖、有共情力的 AI 占卜助手。你的职责是帮助用户解答关于感情、运势、人际关系等方面的困惑。
+const CHAT_SYSTEM = `你是一位温暖、有共情力的 AI 观象助手。你的职责是帮助用户解答关于感情、运势、人际关系等方面的困惑。
 
 要求：
 1. 始终保持积极、正向的引导，给用户希望和力量
@@ -283,9 +704,50 @@ const CHAT_SYSTEM = `你是一位温暖、有共情力的 AI 占卜助手。你�
 4. 不要使用 markdown 格式（不用 **粗体** 等），用自然段落
 5. 每次回答控制在 200-400 字，简洁有力
 6. 用空行分段，结构清晰
-7. 如果用户问的问题涉及占卜，可以结合星座、塔罗、八字等知识来回答`;
+7. 如果用户问的问题涉及命理，可以结合星座、塔罗、八字等知识来回答`;
 
-let chatHistory = [];
+const CHAT_GREETING = '你好！我是你的 AI 观象助手 🔮 你可以问我关于感情、运势、人际关系等问题，我会为你提供积极的指引和建议～';
+let currentConversationId = Number(localStorage.getItem('zhanbu_conversation')) || null;
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[ch]));
+}
+
+function appendChatBubble(role, text) {
+  const messagesEl = document.getElementById('chat-messages');
+  if (!messagesEl) return;
+  const msg = document.createElement('div');
+  msg.className = 'chat-msg ' + (role === 'user' ? 'user' : 'ai');
+  msg.innerHTML = `<div class="chat-bubble">${escapeHtml(text).replace(/\n/g, '<br>')}</div>`;
+  messagesEl.appendChild(msg);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+async function restoreChat() {
+  if (!currentConversationId) return;
+  try {
+    const data = await ChatAPI.history(currentConversationId);
+    if (!data.success) throw new Error(data.error || '会话不存在');
+    const messagesEl = document.getElementById('chat-messages');
+    messagesEl.innerHTML = '';
+    (data.messages || []).forEach(m => appendChatBubble(m.role, m.content));
+  } catch (e) {
+    console.warn('恢复对话失败:', e.message);
+    currentConversationId = null;
+    localStorage.removeItem('zhanbu_conversation');
+  }
+}
+
+function newChat() {
+  currentConversationId = null;
+  localStorage.removeItem('zhanbu_conversation');
+  const messagesEl = document.getElementById('chat-messages');
+  if (messagesEl) {
+    messagesEl.innerHTML = `<div class="chat-msg ai"><div class="chat-bubble">${CHAT_GREETING}</div></div>`;
+  }
+}
 
 async function sendChat() {
   const input = document.getElementById('chat-input');
@@ -295,64 +757,46 @@ async function sendChat() {
   const text = input.value.trim();
   if (!text) return;
 
-  // 添加用户消息
-  const userMsg = document.createElement('div');
-  userMsg.className = 'chat-msg user';
-  userMsg.innerHTML = `<div class="chat-bubble">${text}</div>`;
-  messagesEl.appendChild(userMsg);
+  appendChatBubble('user', text);
   input.value = '';
 
-  // 滚动到底部
-  messagesEl.scrollTop = messagesEl.scrollHeight;
-
-  // 添加 AI 加载动画
   const aiMsg = document.createElement('div');
   aiMsg.className = 'chat-msg ai';
-  aiMsg.innerHTML = `<div class="chat-bubble chat-loading">正在思考</div>`;
+  aiMsg.innerHTML = '<div class="chat-bubble chat-loading">正在思考</div>';
   messagesEl.appendChild(aiMsg);
   messagesEl.scrollTop = messagesEl.scrollHeight;
 
   sendBtn.disabled = true;
 
   try {
-    chatHistory.push({ role: 'user', content: text });
-
-    const messages = [
-      { role: 'system', content: CHAT_SYSTEM },
-      ...chatHistory.slice(-10)
-    ];
-
     let aiReply = '';
     let frameRequested = false;
     const bubble = aiMsg.querySelector('.chat-bubble');
     bubble.className = 'chat-bubble';
 
     const doRender = () => {
-      bubble.innerHTML = aiReply.replace(/\n/g, '<br>');
+      bubble.innerHTML = escapeHtml(aiReply).replace(/\n/g, '<br>');
       frameRequested = false;
       messagesEl.scrollTop = messagesEl.scrollHeight;
     };
 
-    const fullReply = await streamAI(messages, 800, (fullText) => {
+    await streamChat(text, currentConversationId, CHAT_SYSTEM, (fullText) => {
       aiReply = fullText;
       if (!frameRequested) {
         frameRequested = true;
         requestAnimationFrame(doRender);
       }
+    }, (response) => {
+      const id = response.headers.get('X-Conversation-Id');
+      if (id) {
+        currentConversationId = Number(id);
+        localStorage.setItem('zhanbu_conversation', id);
+      }
     });
 
     if (frameRequested) doRender();
-    chatHistory.push({ role: 'assistant', content: fullReply });
-
-    // 保存聊天记录
-    try {
-      await HistoryAPI.save('聊天', text, fullReply);
-    } catch (e) {
-      console.warn('保存聊天记录失败:', e.message);
-    }
-
   } catch (error) {
-    aiMsg.querySelector('.chat-bubble').innerHTML = '抱歉，连接失败了：' + error.message;
+    aiMsg.querySelector('.chat-bubble').innerHTML = '抱歉，连接失败了：' + escapeHtml(error.message);
     aiMsg.querySelector('.chat-bubble').style.color = '#ef4444';
   }
 

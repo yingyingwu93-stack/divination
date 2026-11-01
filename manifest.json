@@ -1,7 +1,7 @@
 {
-  "name": "占卜 - 星座解梦塔罗八字",
-  "short_name": "占卜",
-  "description": "星座分析、周公解梦、塔罗牌、八字命理",
+  "name": "观象 - 星座紫微塔罗八字",
+  "short_name": "观象",
+  "description": "星座分析、紫微斗数、周公解梦、塔罗牌、八字命理",
   "start_url": "index.html",
   "display": "standalone",
   "background_color": "#0f0a1e",

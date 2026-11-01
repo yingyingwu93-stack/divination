@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#4c1d95">
-  <title>塔罗牌占卜 - 占卜</title>
+  <title>塔罗牌 - 观象</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="css/style.css">
 </head>
@@ -19,31 +19,31 @@
   </div>
 
   <div class="tarot-intro">
-    <p>心中默想一个问题，从三张牌中依次翻开，获取指引</p>
+    <p>心中默想一个问题，选择牌阵后依次翻牌，获取指引</p>
+    <div class="spread-selector" id="spread-selector"></div>
     <div class="tarot-question">
       <input type="text" id="tarot-question" placeholder="输入你想问的问题（可选）">
     </div>
   </div>
 
   <div class="tarot-spread">
-    <div class="spread-title">✦ 三张牌阵 ✦</div>
-    <div class="cards-row">
-      <div class="card-position"><div class="card-position-label">过去</div><div class="tarot-card" id="card-0" onclick="flipCard(0)"><div class="tarot-card-inner"><div class="tarot-card-back"><span class="back-pattern">✦</span><span class="back-text">点击翻开</span></div><div class="tarot-card-front"><span class="card-icon"></span><span class="card-name"></span><span class="card-orientation"></span></div></div></div></div>
-      <div class="card-position"><div class="card-position-label">现在</div><div class="tarot-card disabled" id="card-1" onclick="flipCard(1)"><div class="tarot-card-inner"><div class="tarot-card-back"><span class="back-pattern">✦</span><span class="back-text">点击翻开</span></div><div class="tarot-card-front"><span class="card-icon"></span><span class="card-name"></span><span class="card-orientation"></span></div></div></div></div>
-      <div class="card-position"><div class="card-position-label">未来</div><div class="tarot-card disabled" id="card-2" onclick="flipCard(2)"><div class="tarot-card-inner"><div class="tarot-card-back"><span class="back-pattern">✦</span><span class="back-text">点击翻开</span></div><div class="tarot-card-front"><span class="card-icon"></span><span class="card-name"></span><span class="card-orientation"></span></div></div></div></div>
-    </div>
+    <div class="spread-title" id="spread-title">✦ 三张牌阵 ✦</div>
+    <div class="cards-row" id="tarot-cards"></div>
   </div>
 
   <div class="tarot-result" id="tarot-result">
     <div class="result-summary card"><h4>🔮 塔罗解读</h4><div id="result-text"></div></div>
     <div class="result-cards-detail" id="result-detail"></div>
+    <div id="followup-root"></div>
     <button class="reset-btn" onclick="resetTarot()">重新占卜</button>
   </div>
 
   <nav class="bottom-nav">
     <div class="nav-item" onclick="goTo('index.html')"><span class="nav-icon">🏠</span><span>首页</span></div>
     <div class="nav-item" onclick="goTo('zodiac.html')"><span class="nav-icon">⭐</span><span>星座</span></div>
+    <div class="nav-item active"><span class="nav-icon">🃏</span><span>塔罗</span></div>
     <div class="nav-item" onclick="goTo('dream.html')"><span class="nav-icon">🌙</span><span>解梦</span></div>
+    <div class="nav-item" onclick="openMingliMenu(event)"><span class="nav-icon">☯️</span><span>命理</span></div>
     <div class="nav-item" onclick="goTo('settings.html')"><span class="nav-icon">⚙️</span><span>设置</span></div>
   </nav>
 </div>
@@ -52,7 +52,9 @@
 <script src="js/data.js"></script>
 <script src="js/main.js"></script>
 <script src="js/longcat.js"></script>
+<script src="js/tarot-data.js"></script>
 <script src="js/tarot.js"></script>
+<script src="js/followup.js"></script>
 <script src="js/pwa.js"></script>
 </body>
 </html>

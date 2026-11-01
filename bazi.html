@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#4c1d95">
-  <title>八字命理 - 占卜</title>
+  <title>八字命理 - 观象</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="css/style.css">
 </head>
@@ -20,35 +20,52 @@
 
   <div class="page-container">
     <div class="bazi-form card">
-      <label>📅 出生信息</label>
+      <label>📅 出生信息（公历）</label>
       <div class="form-row">
-        <input type="number" id="bazi-year" placeholder="如：1995" min="1940" max="2025">
+        <input type="number" id="bazi-year" placeholder="如：1995" min="1900" max="2100">
         <span style="color:var(--text-muted);line-height:44px;">年</span>
         <input type="number" id="bazi-month" placeholder="1-12" min="1" max="12">
         <span style="color:var(--text-muted);line-height:44px;">月</span>
-      </div>
-      <div class="form-row">
         <input type="number" id="bazi-day" placeholder="1-31" min="1" max="31">
         <span style="color:var(--text-muted);line-height:44px;">日</span>
       </div>
       <div class="form-row">
         <select id="bazi-hour" style="flex:1;"></select>
+        <input type="number" id="bazi-minute" placeholder="分" min="0" max="59" value="0" style="max-width:90px;">
+        <span style="color:var(--text-muted);line-height:44px;">分</span>
       </div>
+      <div class="form-row">
+        <select id="bazi-gender" style="flex:1;">
+          <option value="male">男</option>
+          <option value="female">女</option>
+        </select>
+        <select id="bazi-province" style="flex:1;"></select>
+      </div>
+      <div class="form-row">
+        <select id="bazi-city" style="flex:1;"></select>
+        <input type="number" id="bazi-longitude" step="0.1" min="70" max="140" title="出生地经度" style="max-width:110px;">
+        <span style="color:var(--text-muted);line-height:44px;">°E</span>
+      </div>
+      <p class="form-hint">选择省份与城市自动填充经度，也可手动修改；年月柱按北京时间节气，日时柱按真太阳时计算</p>
       <button class="bazi-start-btn" onclick="calculateBazi()">☯️ 开始排盘</button>
     </div>
 
     <div id="bazi-result">
+      <div class="solar-info" id="bazi-solar-info"></div>
       <div class="pillars" id="pillars"></div>
       <div class="elements-chart card" id="elements-chart"></div>
       <div class="bazi-analysis" id="bazi-analysis"></div>
       <div id="bazi-ai-analysis" style="display:none;"></div>
+      <div id="followup-root"></div>
     </div>
   </div>
 
   <nav class="bottom-nav">
     <div class="nav-item" onclick="goTo('index.html')"><span class="nav-icon">🏠</span><span>首页</span></div>
     <div class="nav-item" onclick="goTo('zodiac.html')"><span class="nav-icon">⭐</span><span>星座</span></div>
+    <div class="nav-item" onclick="goTo('tarot.html')"><span class="nav-icon">🃏</span><span>塔罗</span></div>
     <div class="nav-item" onclick="goTo('dream.html')"><span class="nav-icon">🌙</span><span>解梦</span></div>
+    <div class="nav-item active" onclick="openMingliMenu(event)"><span class="nav-icon">☯️</span><span>命理</span></div>
     <div class="nav-item" onclick="goTo('settings.html')"><span class="nav-icon">⚙️</span><span>设置</span></div>
   </nav>
 </div>
@@ -57,7 +74,9 @@
 <script src="js/data.js"></script>
 <script src="js/main.js"></script>
 <script src="js/longcat.js"></script>
+<script src="js/bazi-regions.js"></script>
 <script src="js/bazi.js"></script>
+<script src="js/followup.js"></script>
 <script src="js/pwa.js"></script>
 </body>
 </html>

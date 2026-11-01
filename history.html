@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#4c1d95">
-  <title>占卜记录 - 占卜平台</title>
+  <title>观象记录 - 观象</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="manifest" href="manifest.json">
   <style>
@@ -154,6 +154,39 @@
       line-height: 1.8;
       white-space: pre-wrap;
     }
+    .history-toolbar {
+      display: flex; gap: 8px; padding: 0 16px 12px;
+    }
+    .history-toolbar input {
+      flex: 1; padding: 10px 14px; border-radius: 12px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      color: var(--text); font-size: 13px;
+    }
+    .history-toolbar button {
+      padding: 10px 14px; border-radius: 12px; font-size: 12px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      color: var(--text-muted); white-space: nowrap;
+    }
+    .history-toolbar button.active {
+      background: rgba(245,158,11,0.15); color: var(--gold);
+      border-color: rgba(245,158,11,0.35);
+    }
+    .history-item-header .fav-btn {
+      font-size: 16px; padding: 2px 6px; margin-left: 6px;
+      color: var(--text-muted);
+    }
+    .history-item-header .fav-btn.active { color: var(--gold); }
+    .history-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .history-tag {
+      font-size: 11px; padding: 3px 8px; border-radius: 10px;
+      background: rgba(124,58,237,0.12); color: var(--primary-light);
+    }
+    .history-more {
+      display: block; width: calc(100% - 32px); margin: 4px 16px 20px;
+      padding: 12px; border-radius: 14px; font-size: 13px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      color: var(--text-secondary);
+    }
   </style>
 </head>
 <body>
@@ -162,7 +195,7 @@
     <div class="stars-bg" id="stars-history"></div>
     <div class="sub-header-top">
       <button class="back-btn" onclick="goBack()">‹</button>
-      <span class="sub-header-title">📜 占卜记录</span>
+      <span class="sub-header-title">📜 观象记录</span>
     </div>
   </div>
 
@@ -170,9 +203,15 @@
     <div class="history-tab active" data-type="">全部</div>
     <div class="history-tab" data-type="聊天">💬 AI聊天</div>
     <div class="history-tab" data-type="八字">☯️ 八字</div>
+    <div class="history-tab" data-type="紫微斗数">🔮 紫微</div>
     <div class="history-tab" data-type="塔罗">🃏 塔罗</div>
     <div class="history-tab" data-type="解梦">🌙 解梦</div>
     <div class="history-tab" data-type="星座">⭐ 星座</div>
+  </div>
+
+  <div class="history-toolbar">
+    <input id="history-search" placeholder="搜索内容或标签..." oninput="filterHistory()">
+    <button id="favorite-filter" onclick="toggleFavoriteFilter()">⭐ 收藏</button>
   </div>
 
   <div class="history-list" id="history-list">
@@ -181,12 +220,14 @@
       <p>正在加载...</p>
     </div>
   </div>
+  <button class="history-more" id="history-more" onclick="loadHistory(false)" style="display:none;">加载更多</button>
 
   <nav class="bottom-nav">
     <div class="nav-item" onclick="goTo('index.html')"><span class="nav-icon">🏠</span><span>首页</span></div>
     <div class="nav-item" onclick="goTo('zodiac.html')"><span class="nav-icon">⭐</span><span>星座</span></div>
+    <div class="nav-item" onclick="goTo('tarot.html')"><span class="nav-icon">🃏</span><span>塔罗</span></div>
     <div class="nav-item" onclick="goTo('dream.html')"><span class="nav-icon">🌙</span><span>解梦</span></div>
-    <div class="nav-item active"><span class="nav-icon">📜</span><span>记录</span></div>
+    <div class="nav-item" onclick="openMingliMenu(event)"><span class="nav-icon">☯️</span><span>命理</span></div>
     <div class="nav-item" onclick="goTo('settings.html')"><span class="nav-icon">⚙️</span><span>设置</span></div>
   </nav>
 </div>
@@ -204,21 +245,34 @@
 <script src="js/api.js"></script>
 <script src="js/pwa.js"></script>
 <script>
-  let currentFilter = '';
-  let allReadings = [];
-
-  const TYPE_ICONS = {
-    '聊天': '💬',
-    '八字': '☯️',
-    '塔罗': '🃏',
-    '解梦': '🌙',
-    '星座': '⭐'
+  const historyState = {
+    filter: '', keyword: '', favorite: false,
+    page: 1, pageSize: 10, total: 0, items: [], loading: false
   };
 
-  async function loadHistory() {
+  const TYPE_ICONS = {
+    '聊天': '💬', '八字': '☯️', '紫微斗数': '🔮', '塔罗': '🃏', '解梦': '🌙', '星座': '⭐'
+  };
+
+  async function loadHistory(reset = true) {
+    if (historyState.loading) return;
+    historyState.loading = true;
+    if (reset) historyState.page = 1;
+
     try {
-      const result = await HistoryAPI.list(currentFilter || null);
-      allReadings = result.readings || [];
+      const result = await HistoryAPI.list({
+        type: historyState.filter,
+        keyword: historyState.keyword,
+        favorite: historyState.favorite,
+        page: historyState.page,
+        pageSize: historyState.pageSize
+      });
+      if (!result.success) throw new Error(result.error || '加载失败');
+
+      historyState.total = result.total || 0;
+      const items = result.readings || [];
+      historyState.items = reset ? items : historyState.items.concat(items);
+      if (items.length > 0) historyState.page += 1;
       renderHistory();
     } catch (e) {
       document.getElementById('history-list').innerHTML = `
@@ -226,59 +280,108 @@
           <span class="icon">⚠️</span>
           <p>加载失败：${e.message}</p>
         </div>`;
+    } finally {
+      historyState.loading = false;
     }
+  }
+
+  function getPreview(r) {
+    try {
+      const obj = JSON.parse(r.input_data);
+      if (r.type === '八字') {
+        return `出生：${obj.year || ''}年${obj.month || ''}月${obj.day || ''}日`;
+      }
+      if (r.type === '紫微斗数') {
+        const parts = [`${obj.year || ''}年${obj.month || ''}月${obj.day || ''}日`];
+        if (obj.soulPalace) parts.push(obj.soulPalace);
+        if (obj.soulStars) parts.push(obj.soulStars);
+        return parts.join(' · ');
+      }
+      if (r.type === '塔罗') {
+        return [obj.spread, obj.question].filter(Boolean).join(' · ') || '塔罗解读';
+      }
+      if (r.type === '解梦') {
+        return typeof obj === 'string' ? obj : (obj.dream || '');
+      }
+      if (r.type === '星座') {
+        return obj.sign || '';
+      }
+    } catch (e) {
+      return r.input_data.substring(0, 50);
+    }
+    return r.input_data.substring(0, 50);
   }
 
   function renderHistory() {
     const container = document.getElementById('history-list');
+    const moreBtn = document.getElementById('history-more');
 
-    if (allReadings.length === 0) {
+    if (historyState.items.length === 0) {
       container.innerHTML = `
         <div class="empty-state">
           <span class="icon">📜</span>
-          <p>还没有占卜记录</p>
-          <p style="margin-top:8px;">去占卜吧，结果会自动保存到这里</p>
+          <p>${historyState.keyword || historyState.favorite ? '没有匹配的记录' : '还没有观象记录'}</p>
+          <p style="margin-top:8px;">${historyState.keyword || historyState.favorite ? '换个关键词试试' : '去体验吧，结果会自动保存到这里'}</p>
         </div>`;
+      moreBtn.style.display = 'none';
       return;
     }
 
-    container.innerHTML = allReadings.map(r => {
+    container.innerHTML = historyState.items.map(r => {
       const icon = TYPE_ICONS[r.type] || '🔮';
-      let preview = '';
-      try {
-        const inputObj = JSON.parse(r.input_data);
-        if (r.type === '八字') {
-          preview = `出生：${inputObj.year || ''}年${inputObj.month || ''}月${inputObj.day || ''}日`;
-        } else if (r.type === '塔罗') {
-          preview = inputObj.question || '三张牌阵';
-        } else if (r.type === '解梦') {
-          preview = inputObj.dream || '';
-        } else if (r.type === '星座') {
-          preview = inputObj.sign || '';
-        }
-      } catch (e) {
-        preview = r.input_data.substring(0, 50);
-      }
-
-      const resultPreview = r.result.substring(0, 80);
-
+      const preview = getPreview(r);
+      const resultPreview = (r.result || '').substring(0, 80);
+      const tags = (r.tags || '').split(',').filter(Boolean);
       return `
         <div class="history-item" data-id="${r.id}">
           <div class="history-item-header">
             <span class="history-type">${icon} ${r.type}</span>
-            <span class="history-date">${formatDate(r.created_at)}</span>
+            <span>
+              <span class="history-date">${formatDate(r.created_at)}</span>
+              <button class="fav-btn ${r.is_favorite ? 'active' : ''}" onclick="toggleFavorite(${r.id})">${r.is_favorite ? '★' : '☆'}</button>
+            </span>
           </div>
           <div class="history-preview">${preview ? preview + ' — ' : ''}${resultPreview}...</div>
+          ${tags.length ? `<div class="history-tags">${tags.map(t => `<span class="history-tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
           <div class="history-actions">
             <button class="history-btn" onclick="viewDetail(${r.id})">查看详情</button>
+            <button class="history-btn" onclick="editTags(${r.id})">编辑标签</button>
             <button class="history-btn delete" onclick="deleteItem(${r.id})">删除</button>
           </div>
         </div>`;
     }).join('');
+
+    moreBtn.style.display = historyState.items.length < historyState.total ? 'block' : 'none';
+    moreBtn.textContent = `加载更多（${historyState.items.length}/${historyState.total}）`;
+  }
+
+  async function toggleFavorite(id) {
+    const item = historyState.items.find(r => r.id === id);
+    if (!item) return;
+    const next = !item.is_favorite;
+    const data = await HistoryAPI.favorite(id, next);
+    if (!data.success) return alert(data.error || '操作失败');
+    item.is_favorite = next ? 1 : 0;
+    if (historyState.favorite && !next) {
+      historyState.items = historyState.items.filter(r => r.id !== id);
+      historyState.total -= 1;
+    }
+    renderHistory();
+  }
+
+  async function editTags(id) {
+    const item = historyState.items.find(r => r.id === id);
+    if (!item) return;
+    const input = prompt('输入标签，用逗号分隔（留空可清除）', item.tags || '');
+    if (input === null) return;
+    const data = await HistoryAPI.tags(id, input);
+    if (!data.success) return alert(data.error || '保存失败');
+    item.tags = data.tags;
+    renderHistory();
   }
 
   function viewDetail(id) {
-    const item = allReadings.find(r => r.id === id);
+    const item = historyState.items.find(r => r.id === id);
     if (!item) return;
     document.getElementById('modal-text').textContent = item.result;
     document.getElementById('modal').classList.add('show');
@@ -290,12 +393,9 @@
 
   async function deleteItem(id) {
     if (!confirm('确定要删除这条记录吗？')) return;
-    try {
-      await HistoryAPI.delete(id);
-      loadHistory();
-    } catch (e) {
-      alert('删除失败：' + e.message);
-    }
+    const data = await HistoryAPI.delete(id);
+    if (!data.success) return alert(data.error || '删除失败');
+    loadHistory(true);
   }
 
   function formatDate(dateStr) {
@@ -310,14 +410,29 @@
     return `${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
   }
 
+  let searchTimer = null;
+  function filterHistory() {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      historyState.keyword = document.getElementById('history-search').value.trim();
+      loadHistory(true);
+    }, 300);
+  }
+
+  function toggleFavoriteFilter() {
+    historyState.favorite = !historyState.favorite;
+    document.getElementById('favorite-filter').classList.toggle('active', historyState.favorite);
+    loadHistory(true);
+  }
+
   // Tab 切换
   document.getElementById('history-tabs').addEventListener('click', (e) => {
     const tab = e.target.closest('.history-tab');
     if (!tab) return;
     document.querySelectorAll('.history-tab').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
-    currentFilter = tab.dataset.type;
-    renderHistory();
+    historyState.filter = tab.dataset.type;
+    loadHistory(true);
   });
 
   // 点击遮罩关闭
@@ -329,7 +444,7 @@
   if (!Auth.isLoggedIn()) {
     goTo('auth.html');
   } else {
-    loadHistory();
+    loadHistory(true);
   }
 </script>
 </body>

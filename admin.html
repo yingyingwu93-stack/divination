@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#4c1d95">
+  <title>管理后台 - 观象</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .admin-tabs { display: flex; gap: 8px; padding: 12px 16px; overflow-x: auto; }
+    .admin-tab {
+      padding: 8px 16px; border-radius: 20px; white-space: nowrap;
+      background: var(--bg-card); border: 1px solid var(--border);
+      color: var(--text-muted); font-size: 13px; cursor: pointer;
+    }
+    .admin-tab.active { background: var(--primary); color: #fff; border-color: transparent; }
+    .admin-panel { display: none; padding: 0 16px 24px; }
+    .admin-panel.active { display: block; }
+    .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px; }
+    .stat-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px;
+    }
+    .stat-value { font-size: 26px; font-weight: 700; color: var(--gold); }
+    .stat-label { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    .chart-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px; margin-bottom: 16px;
+    }
+    .chart-card h4 { font-size: 14px; margin-bottom: 10px; }
+    .chart { width: 100%; height: 220px; }
+    .admin-toolbar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    .admin-toolbar input, .admin-toolbar select {
+      flex: 1; min-width: 120px; padding: 10px 12px; border-radius: 10px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      color: var(--text); font-size: 13px;
+    }
+    .admin-toolbar button, .admin-btn {
+      padding: 9px 14px; border-radius: 10px; font-size: 12px;
+      background: var(--primary); color: #fff; cursor: pointer;
+    }
+    .admin-btn.ghost { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
+    .admin-btn.danger { background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); }
+    .admin-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .admin-table th, .admin-table td {
+      padding: 10px 8px; text-align: left; border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    .admin-table th { color: var(--text-muted); font-weight: 500; }
+    .admin-table td { color: var(--text-secondary); }
+    .admin-table .cell-preview { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .badge { padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+    .badge.admin { background: rgba(245,158,11,0.15); color: var(--gold); }
+    .badge.user { background: rgba(124,58,237,0.15); color: var(--primary-light); }
+    .badge.active { background: rgba(34,197,94,0.15); color: #22c55e; }
+    .badge.disabled { background: rgba(239,68,68,0.15); color: #ef4444; }
+    .pager { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 14px; font-size: 12px; color: var(--text-muted); }
+    .pager button { padding: 6px 12px; border-radius: 10px; border: 1px solid var(--border); color: var(--text-secondary); }
+    .forbidden { text-align: center; padding: 80px 20px; }
+    .forbidden .icon { font-size: 48px; display: block; margin-bottom: 12px; }
+    .admin-modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 1000;
+      display: none; align-items: center; justify-content: center; padding: 20px;
+    }
+    .admin-modal.show { display: flex; }
+    .admin-modal-body {
+      width: 100%; max-width: 480px; max-height: 85vh; overflow-y: auto;
+      background: var(--bg-card); border-radius: 18px; padding: 20px;
+    }
+    .admin-modal-body h3 { font-size: 16px; margin-bottom: 14px; }
+    .admin-form label { display: block; font-size: 12px; color: var(--text-muted); margin: 10px 0 5px; }
+    .admin-form input, .admin-form textarea, .admin-form select {
+      width: 100%; padding: 10px 12px; border-radius: 10px;
+      background: var(--bg); border: 1px solid var(--border);
+      color: var(--text); font-size: 13px;
+    }
+    .admin-form textarea { min-height: 80px; resize: vertical; }
+    .admin-form-actions { display: flex; gap: 10px; margin-top: 16px; }
+    .admin-form-actions button { flex: 1; padding: 11px; border-radius: 10px; font-size: 13px; }
+  </style>
+</head>
+<body class="admin-body">
+<div class="page" id="page-admin">
+  <div class="sub-header">
+    <div class="stars-bg" id="stars-admin"></div>
+    <div class="sub-header-top">
+      <button class="back-btn" onclick="goTo('index.html')">‹</button>
+      <span class="sub-header-title">🛠️ 管理后台</span>
+    </div>
+  </div>
+
+  <div id="admin-forbidden" class="forbidden" style="display:none;">
+    <span class="icon">🔒</span>
+    <p>需要管理员权限</p>
+    <p style="font-size:13px;color:var(--text-muted);margin-top:8px;">请使用管理员账号登录后再访问</p>
+  </div>
+
+  <div id="admin-main" style="display:none;">
+    <div class="admin-tabs" id="admin-tabs">
+      <div class="admin-tab active" data-panel="dashboard">📊 数据看板</div>
+      <div class="admin-tab" data-panel="users">👥 用户管理</div>
+      <div class="admin-tab" data-panel="readings">📜 记录管理</div>
+      <div class="admin-tab" data-panel="dreams">🌙 词条管理</div>
+    </div>
+
+    <div class="admin-panel active" id="panel-dashboard">
+      <div class="stat-grid" id="stat-grid"></div>
+      <div class="chart-card"><h4>📈 近 7 日记录趋势</h4><div class="chart" id="chart-trend"></div></div>
+      <div class="chart-card"><h4>🥧 解读类型分布</h4><div class="chart" id="chart-type"></div></div>
+      <div class="chart-card"><h4>🤖 AI 接口调用</h4><div class="chart" id="chart-ai"></div></div>
+    </div>
+
+    <div class="admin-panel" id="panel-users">
+      <div class="admin-toolbar">
+        <input id="user-search" placeholder="搜索用户名" onkeydown="if(event.key==='Enter')loadUsers(1)">
+        <button onclick="loadUsers(1)">搜索</button>
+      </div>
+      <div style="overflow-x:auto;"><table class="admin-table" id="user-table"></table></div>
+      <div class="pager" id="user-pager"></div>
+    </div>
+
+    <div class="admin-panel" id="panel-readings">
+      <div class="admin-toolbar">
+        <select id="reading-type">
+          <option value="">全部类型</option>
+          <option value="八字">八字</option>
+          <option value="紫微斗数">紫微斗数</option>
+          <option value="塔罗">塔罗</option>
+          <option value="解梦">解梦</option>
+          <option value="星座">星座</option>
+          <option value="聊天">聊天</option>
+        </select>
+        <input id="reading-search" placeholder="搜索用户或内容" onkeydown="if(event.key==='Enter')loadReadings(1)">
+        <button onclick="loadReadings(1)">搜索</button>
+      </div>
+      <div style="overflow-x:auto;"><table class="admin-table" id="reading-table"></table></div>
+      <div class="pager" id="reading-pager"></div>
+    </div>
+
+    <div class="admin-panel" id="panel-dreams">
+      <div class="admin-toolbar">
+        <input id="dream-search" placeholder="搜索标题/关键词" onkeydown="if(event.key==='Enter')loadDreams(1)">
+        <button onclick="loadDreams(1)">搜索</button>
+        <button class="admin-btn ghost" onclick="openDreamModal()">＋ 新增词条</button>
+      </div>
+      <div style="overflow-x:auto;"><table class="admin-table" id="dream-table"></table></div>
+      <div class="pager" id="dream-pager"></div>
+    </div>
+  </div>
+</div>
+
+<div class="admin-modal" id="dream-modal">
+  <div class="admin-modal-body">
+    <h3 id="dream-modal-title">新增词条</h3>
+    <div class="admin-form">
+      <input type="hidden" id="dream-id">
+      <label>标题</label><input id="dream-title" placeholder="如：梦见蛇">
+      <label>分类</label>
+      <select id="dream-category">
+        <option>动物</option><option>植物</option><option>人物</option><option>情感</option>
+        <option>场景</option><option>物品</option><option>自然</option><option>身体</option>
+        <option>鬼神</option><option>建筑</option><option>交通</option><option>数字</option><option>其他</option>
+      </select>
+      <label>关键词（逗号分隔）</label><input id="dream-keywords" placeholder="蛇,大蛇,被蛇咬">
+      <label>传统解梦</label><textarea id="dream-traditional"></textarea>
+      <label>心理分析</label><textarea id="dream-psychology"></textarea>
+    </div>
+    <div class="admin-form-actions">
+      <button class="admin-btn ghost" onclick="closeDreamModal()">取消</button>
+      <button class="admin-btn" onclick="saveDream()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/main.js"></script>
+<script src="js/echarts.min.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>

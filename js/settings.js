@@ -42,6 +42,10 @@ async function loadUserInfo() {
     if (data.success && data.user) {
       document.getElementById('settings-username').textContent = data.user.username;
       document.getElementById('settings-userid').textContent = '用户ID: ' + data.user.id;
+      if (data.user.role === 'admin') {
+        const entry = document.getElementById('admin-entry');
+        if (entry) entry.style.display = 'block';
+      }
     }
   } catch (e) {
     console.warn('获取用户信息失败:', e.message);

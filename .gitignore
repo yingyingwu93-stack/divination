@@ -4,7 +4,7 @@ backend/.env
 *.env
 !backend/.env.example
 
-# ===== 数据库：含真实用户与占卜记录 =====
+# ===== 数据库：含真实用户与解读记录 =====
 backend/data.db
 *.db
 *.sqlite3
@@ -26,6 +26,14 @@ venv/
 
 # ===== 私人对话导出 =====
 与claude对话导出-*.md
+
+# ===== 本地调试脚本与测试产物 =====
+_look.py
+_ui_test.py
+_shots/
+.coverage
+backend/.coverage
+htmlcov/
 
 # ===== 编辑器 / 系统 =====
 .idea/

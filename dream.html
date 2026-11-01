@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#4c1d95">
-  <title>周公解梦 - 占卜</title>
+  <title>周公解梦 - 观象</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="css/style.css">
 </head>
@@ -28,18 +28,22 @@
       <textarea id="dream-input" placeholder="请描述梦中的场景、人物、感受..."></textarea>
       <button class="describe-btn" onclick="interpretDream()">🔮 开始解梦</button>
       <div class="interpret-result" id="interpret-result"></div>
+      <div id="followup-root"></div>
     </div>
   </div>
 
   <div class="page-container">
     <div class="category-tags" id="cat-tags"></div>
     <div class="dream-list" id="dream-list"></div>
+    <button class="load-more-btn" id="dream-load-more" onclick="loadMoreDreams()" style="display:none;">加载更多</button>
   </div>
 
   <nav class="bottom-nav">
     <div class="nav-item" onclick="goTo('index.html')"><span class="nav-icon">🏠</span><span>首页</span></div>
     <div class="nav-item" onclick="goTo('zodiac.html')"><span class="nav-icon">⭐</span><span>星座</span></div>
+    <div class="nav-item" onclick="goTo('tarot.html')"><span class="nav-icon">🃏</span><span>塔罗</span></div>
     <div class="nav-item active"><span class="nav-icon">🌙</span><span>解梦</span></div>
+    <div class="nav-item" onclick="openMingliMenu(event)"><span class="nav-icon">☯️</span><span>命理</span></div>
     <div class="nav-item" onclick="goTo('settings.html')"><span class="nav-icon">⚙️</span><span>设置</span></div>
   </nav>
 </div>
@@ -48,6 +52,7 @@
 <script src="js/data.js"></script>
 <script src="js/main.js"></script>
 <script src="js/longcat.js"></script>
+<script src="js/followup.js"></script>
 <script src="js/pwa.js"></script>
 <script>
   // 检查登录（异步）
@@ -58,22 +63,26 @@
     if (!input) { document.getElementById('dream-input').focus(); return; }
     const resultBox = document.getElementById('interpret-result');
     resultBox.classList.add('show');
-    resultBox.innerHTML = '<div class="ir-box"><p>🔮 正在分析你的梦境...</p></div>';
+    resultBox.innerHTML = '<div class="ir-box"><p>🔮 正在检索知识库并分析你的梦境...</p></div>';
 
-    const formatText = text => text.replace(/\n/g, '<br>');
+    let refs = [];
+    try {
+      const rag = await DreamAPI.rag(input);
+      refs = rag.references || [];
+    } catch (e) {
+      console.warn('知识库检索失败:', e.message);
+    }
 
     try {
       let dreamResult = '';
       let dreamRenderTimer = null;
-      let dreamFrameRequested = false;
       let dreamPendingText = '';
       const dreamContainer = document.createElement('div');
       dreamContainer.className = 'ai-reading';
       resultBox.innerHTML = '<div class="ir-box"></div>';
       resultBox.querySelector('.ir-box').appendChild(dreamContainer);
-      const formatBrDream = text => text.replace(/\n/g, '<br>');
       const doDreamRender = () => {
-        dreamContainer.innerHTML = formatBrDream(dreamPendingText);
+        dreamContainer.innerHTML = escapeHtml(dreamPendingText).replace(/\n/g, '<br>');
         dreamRenderTimer = null;
       };
       await getDreamAnalysis(input, (fullText) => {
@@ -87,16 +96,30 @@
         clearTimeout(dreamRenderTimer);
         doDreamRender();
       }
-      // 保存到历史记录
-      await HistoryAPI.save('解梦', input, dreamResult);
+
+      if (refs.length) {
+        const refsEl = document.createElement('div');
+        refsEl.className = 'rag-refs';
+        refsEl.innerHTML = '<h4>📚 知识库依据</h4>' + refs.map(r =>
+          `<span class="rag-ref">${r.title}（${r.category || '词条'}）</span>`
+        ).join('');
+        resultBox.querySelector('.ir-box').appendChild(refsEl);
+      }
+
+      const saved = await HistoryAPI.save('解梦', input, dreamResult);
+      if (saved.reading_id && typeof initFollowup === 'function') {
+        initFollowup(saved.reading_id, {
+          system: '你是一位精通解梦的心理学家。用户正在追问刚才的梦境解读，请结合上下文回答，语言温和有共情力，不要使用 markdown。',
+          placeholder: '继续追问这个梦...'
+        });
+      }
     } catch (error) {
       console.warn('解梦 AI 分析失败:', error.message);
       renderError(resultBox, `AI 分析失败：${error.message}`, 'interpretDream()');
     }
   }
 
-  renderCategories();
-  renderDreamList();
+  initDreamPage();
 </script>
 </body>
 </html>

@@ -1,0 +1,11 @@
+node_modules
+.git
+.gitignore
+__pycache__
+*.pyc
+backend/tests
+backend/server.log
+backend/_check.json
+backend/_rag.json
+*.mp4
+docs/demo.mp4
