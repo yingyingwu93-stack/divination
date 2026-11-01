@@ -3,7 +3,7 @@
 基于 AI 的传统文化命理平台，包含八字排盘、塔罗牌、周公解梦、星座分析四个模块，并配套 RAG 知识库、多轮追问、管理后台与数据看板。
 
 <p align="center">
-  <img src="docs/screenshot.png" width="320" alt="观象首页">
+  <img src="docs/screenshot.jpg" width="320" alt="观象首页">
 </p>
 
 ▶️ [演示视频](docs/demo.mp4)（约 2 分 09 秒）
