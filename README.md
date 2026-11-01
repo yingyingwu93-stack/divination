@@ -6,7 +6,7 @@
   <img src="docs/screenshot.png" width="320" alt="观象首页">
 </p>
 
-▶️ [演示视频](docs/demo.mp4)（约 2 分 25 秒）
+▶️ [演示视频](docs/demo.mp4)（约 2 分 09 秒）
 
 ## ✨ 功能特性
 
