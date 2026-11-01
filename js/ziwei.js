@@ -118,12 +118,22 @@ async function calculateZiwei() {
     await saveBirthDate(birthDate);
 
     runZiweiAI(astrolabe, payload)
-      .then(text => saveZiweiReading(astrolabe, payload, text))
-      .then(readingId => {
+      .then(text => saveZiweiReading(astrolabe, payload, text).then(readingId => ({ text, readingId })))
+      .then(({ text, readingId }) => {
         if (readingId && typeof initFollowup === 'function') {
           initFollowup(readingId, {
             system: '你是一位精通紫微斗数的命理师。用户正在追问刚才的命盘解读，请结合命宫主星、三方四正、四化飞星等上下文回答，语言通俗易懂，不要使用 markdown。',
             placeholder: '继续追问这次命盘解读...'
+          });
+        }
+        if (readingId && typeof Assistant !== 'undefined') {
+          const soul = findSoulPalace(astrolabe);
+          const stars = (soul.majorStars || []).map(s => s.name).join('、') || '空宫';
+          Assistant.pushResult({
+            type: '紫微斗数',
+            title: '紫微排盘完成',
+            summary: `命宫主星：${stars}。${(text || '').slice(0, 60)}`,
+            readingId
           });
         }
       });

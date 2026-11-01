@@ -704,7 +704,17 @@ const CHAT_SYSTEM = `你是一位温暖、有共情力的 AI 观象助手。你�
 4. 不要使用 markdown 格式（不用 **粗体** 等），用自然段落
 5. 每次回答控制在 200-400 字，简洁有力
 6. 用空行分段，结构清晰
-7. 如果用户问的问题涉及命理，可以结合星座、塔罗、八字等知识来回答`;
+7. 如果用户问的问题涉及命理，可以结合星座、塔罗、八字等知识来回答
+
+你可以引导用户使用站内功能。当用户想使用某个功能时，先正常回应用户，然后在回复的最后单独一行输出对应标记（只输出一个标记，不要解释标记本身）：
+[[ACTION:zodiac]] 星座运势
+[[ACTION:tarot]] 塔罗占卜
+[[ACTION:dream]] 解梦
+[[ACTION:bazi]] 八字命理
+[[ACTION:ziwei]] 紫微斗数
+例如用户说“我想玩塔罗牌”，就正常回应，最后一行写 [[ACTION:tarot]]。`;
+
+window.CHAT_SYSTEM = CHAT_SYSTEM;
 
 const CHAT_GREETING = '你好！我是你的 AI 观象助手 🔮 你可以问我关于感情、运势、人际关系等问题，我会为你提供积极的指引和建议～';
 let currentConversationId = Number(localStorage.getItem('zhanbu_conversation')) || null;
@@ -715,12 +725,63 @@ function escapeHtml(text) {
   }[ch]));
 }
 
+/* ---------- 聊天中的功能跳转标记 ---------- */
+const CHAT_ACTION_MAP = {
+  zodiac: { label: '星座运势', icon: '⭐', url: 'zodiac.html' },
+  tarot: { label: '塔罗占卜', icon: '🃏', url: 'tarot.html' },
+  dream: { label: '解梦', icon: '🌙', url: 'dream.html' },
+  bazi: { label: '八字命理', icon: '☯️', url: 'bazi.html' },
+  ziwei: { label: '紫微斗数', icon: '🔮', url: 'ziwei.html' }
+};
+
+function parseChatAction(text) {
+  const match = String(text).match(/\[\[ACTION:([a-z]+)\]\]/);
+  return match && CHAT_ACTION_MAP[match[1]] ? match[1] : null;
+}
+
+/* 模型偶尔不输出标记，用用户原话做兜底识别 */
+const CHAT_INTENT_RULES = [
+  { key: 'tarot', words: ['塔罗', '抽牌', '牌阵', '抽张牌'] },
+  { key: 'ziwei', words: ['紫微', '斗数'] },
+  { key: 'bazi', words: ['八字', '四柱', '排盘', '生辰', '算命'] },
+  { key: 'dream', words: ['解梦', '梦见', '做梦', '梦到', '解个梦', '解一下梦', '解解梦', '看看梦', '分析梦'] },
+  { key: 'zodiac', words: ['星座', '今日运势', '本周运势', '本月运势'] }
+];
+
+function detectChatIntent(text) {
+  const content = String(text || '');
+  for (const rule of CHAT_INTENT_RULES) {
+    if (rule.words.some(word => content.includes(word))) return rule.key;
+  }
+  return null;
+}
+
+function cleanChatText(text) {
+  return String(text)
+    .replace(/\[\[ACTION:[a-z]+\]\]/g, '')
+    .replace(/\[\[RESULT:[^\]]*\]\]/g, '')
+    .trim();
+}
+
+function appendChatAction(container, actionKey) {
+  const action = CHAT_ACTION_MAP[actionKey];
+  if (!action || !container || container.querySelector('.chat-action')) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'chat-action';
+  const btn = document.createElement('button');
+  btn.className = 'chat-action-btn';
+  btn.textContent = `${action.icon} 前往${action.label} →`;
+  btn.addEventListener('click', () => goTo(action.url));
+  wrap.appendChild(btn);
+  container.appendChild(wrap);
+}
+
 function appendChatBubble(role, text) {
   const messagesEl = document.getElementById('chat-messages');
   if (!messagesEl) return;
   const msg = document.createElement('div');
   msg.className = 'chat-msg ' + (role === 'user' ? 'user' : 'ai');
-  msg.innerHTML = `<div class="chat-bubble">${escapeHtml(text).replace(/\n/g, '<br>')}</div>`;
+  msg.innerHTML = `<div class="chat-bubble">${escapeHtml(cleanChatText(text)).replace(/\n/g, '<br>')}</div>`;
   messagesEl.appendChild(msg);
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
@@ -775,7 +836,7 @@ async function sendChat() {
     bubble.className = 'chat-bubble';
 
     const doRender = () => {
-      bubble.innerHTML = escapeHtml(aiReply).replace(/\n/g, '<br>');
+      bubble.innerHTML = escapeHtml(cleanChatText(aiReply)).replace(/\n/g, '<br>');
       frameRequested = false;
       messagesEl.scrollTop = messagesEl.scrollHeight;
     };
@@ -795,6 +856,7 @@ async function sendChat() {
     });
 
     if (frameRequested) doRender();
+    appendChatAction(bubble, parseChatAction(aiReply) || detectChatIntent(text));
   } catch (error) {
     aiMsg.querySelector('.chat-bubble').innerHTML = '抱歉，连接失败了：' + escapeHtml(error.message);
     aiMsg.querySelector('.chat-bubble').style.color = '#ef4444';
@@ -802,4 +864,24 @@ async function sendChat() {
 
   sendBtn.disabled = false;
   messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+/* ---------- 免责声明 ---------- */
+function injectDisclaimer() {
+  if (/admin\.html$/.test(location.pathname)) return;
+  if (document.querySelector('.app-disclaimer')) return;
+
+  const el = document.createElement('div');
+  el.className = 'app-disclaimer';
+  el.textContent = '⚠️ 免责声明：本平台所有命理、星座、塔罗、解梦内容均由 AI 生成，仅供娱乐与自我探索参考，请理性看待，勿作为医疗、法律、投资或人生决策依据。';
+
+  const nav = document.querySelector('.bottom-nav');
+  if (nav && nav.parentNode) nav.parentNode.insertBefore(el, nav);
+  else document.body.appendChild(el);
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', injectDisclaimer);
+} else {
+  injectDisclaimer();
 }

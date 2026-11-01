@@ -179,6 +179,15 @@ async function showReading() {
         placeholder: '继续追问这次塔罗解读...'
       });
     }
+    if (readingId && typeof Assistant !== 'undefined') {
+      const cardText = selectedCards.map(c => `${c.name}${c.isReversed ? '（逆）' : ''}`).join('、');
+      Assistant.pushResult({
+        type: '塔罗',
+        title: '塔罗解读完成',
+        summary: `${question ? '问题：' + question + '。' : ''}抽到：${cardText}。${(reading || '').slice(0, 80)}`,
+        readingId
+      });
+    }
   } catch (error) {
     console.warn('AI 解读失败:', error.message);
     renderError(resultText, `大模型连接失败：${error.message}`, 'showReading()');

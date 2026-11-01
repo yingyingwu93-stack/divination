@@ -411,6 +411,18 @@ def get_messages(conversation_id, limit=30):
     return [dict(r) for r in rows]
 
 
+def update_conversation_context(conversation_id, context_type="", context_id=None):
+    """记录会话最近关联的解读记录，供后续追问带上 reading_id"""
+    conn = get_db()
+    conn.execute(
+        """UPDATE conversations SET context_type = ?, context_id = ?,
+           updated_at = CURRENT_TIMESTAMP WHERE id = ?""",
+        (context_type or "", context_id, conversation_id),
+    )
+    conn.commit()
+    conn.close()
+
+
 def list_conversations(user_id, limit=20):
     conn = get_db()
     rows = conn.execute(

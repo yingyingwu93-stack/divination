@@ -1,5 +1,5 @@
-const CACHE_NAME = 'divination-v10';
-const urlsToCache = ['/', '/index.html', '/auth.html', '/dream.html', '/zodiac.html', '/tarot.html', '/bazi.html', '/ziwei.html', '/history.html', '/settings.html', '/css/style.css', '/js/data.js', '/js/main.js', '/js/auth.js', '/js/api.js', '/js/tarot.js', '/js/tarot-data.js', '/js/longcat.js', '/js/bazi.js', '/js/bazi-regions.js', '/js/ziwei.js', '/js/iztro.min.js', '/js/pwa.js'];
+const CACHE_NAME = 'divination-v11';
+const urlsToCache = ['/', '/index.html', '/auth.html', '/dream.html', '/zodiac.html', '/tarot.html', '/bazi.html', '/ziwei.html', '/history.html', '/settings.html', '/css/style.css', '/js/data.js', '/js/main.js', '/js/auth.js', '/js/api.js', '/js/tarot.js', '/js/tarot-data.js', '/js/longcat.js', '/js/bazi.js', '/js/bazi-regions.js', '/js/ziwei.js', '/js/iztro.min.js', '/js/assistant.js', '/js/followup.js', '/js/pwa.js'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache)));

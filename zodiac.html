@@ -70,6 +70,7 @@
 <script src="js/data.js"></script>
 <script src="js/main.js"></script>
 <script src="js/followup.js"></script>
+<script src="js/assistant.js"></script>
 <script src="js/pwa.js"></script>
 <script>
   requireLogin().then(valid => { if (!valid) throw new Error('需要登录'); });
@@ -114,6 +115,14 @@
         initFollowup(saved.reading_id, {
           system: '你是一位星座分析师。用户正在追问刚才的星座解读，请结合上下文回答，语言生动自然，不要使用 markdown。',
           placeholder: '继续追问这个星座...'
+        });
+      }
+      if (saved.reading_id && typeof Assistant !== 'undefined') {
+        Assistant.pushResult({
+          type: '星座',
+          title: '星座解读完成',
+          summary: `${zodiac.name}：${(result || '').slice(0, 70)}`,
+          readingId: saved.reading_id
         });
       }
     } catch (error) {

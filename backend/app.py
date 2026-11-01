@@ -7,6 +7,7 @@ from flask import Flask, request, jsonify, Response, send_from_directory
 from flask_cors import CORS
 import requests
 import json
+import re
 import time
 import os
 import hashlib
@@ -19,7 +20,7 @@ from models import (
     count_readings, set_reading_favorite, update_reading_tags,
     get_db, hash_password, log_ai_usage,
     create_conversation, get_conversation, add_message,
-    get_messages, list_conversations,
+    get_messages, list_conversations, update_conversation_context,
     get_fortune_cache, save_fortune_cache
 )
 from auth import generate_token, login_required, admin_required
@@ -647,7 +648,15 @@ DEFAULT_CHAT_SYSTEM = """你是一位温暖、有共情力的 AI 观象助手。
 3. 回答要有实用性，给出具体建议
 4. 不要使用 markdown 格式，用自然段落
 5. 每次回答控制在 200-400 字
-6. 用空行分段，结构清晰"""
+6. 用空行分段，结构清晰
+
+你可以引导用户使用站内功能。当用户想使用某个功能时，先正常回应用户，然后在回复的最后单独一行输出对应标记（只输出一个标记，不要解释标记本身）：
+[[ACTION:zodiac]] 星座运势
+[[ACTION:tarot]] 塔罗占卜
+[[ACTION:dream]] 解梦
+[[ACTION:bazi]] 八字命理
+[[ACTION:ziwei]] 紫微斗数
+例如用户说“我想玩塔罗牌”，就正常回应，最后一行写 [[ACTION:tarot]]。"""
 
 
 @app.route("/api/ai/chat", methods=["POST"])
@@ -704,8 +713,10 @@ def ai_chat():
     messages = [{"role": "system", "content": system + context}] + history
 
     def save_reply(full_text):
-        add_message(conversation_id, "assistant", full_text)
-        save_reading(user_id, "聊天", message, full_text)
+        # 跳转标记只用于前端渲染按钮，落库时清理
+        clean_text = re.sub(r"\[\[ACTION:[a-z]+\]\]", "", full_text).strip()
+        add_message(conversation_id, "assistant", clean_text)
+        save_reading(user_id, "聊天", message, clean_text)
 
     response = _sse_stream(
         messages,
@@ -744,6 +755,47 @@ def chat_conversations():
         "success": True,
         "conversations": list_conversations(request.current_user["user_id"]),
     })
+
+
+@app.route("/api/chat/inject", methods=["POST"])
+@login_required
+def chat_inject():
+    """功能页把解读摘要写入会话，浮层聊天可接着追问"""
+    data = request.get_json() or {}
+    content = (data.get("content") or "").strip()
+    if not content:
+        return jsonify({"success": False, "error": "内容不能为空"}), 400
+
+    user_id = request.current_user["user_id"]
+    context_type = (data.get("context_type") or "").strip()[:20]
+
+    reading_id = data.get("reading_id")
+    try:
+        reading_id = int(reading_id) if reading_id else None
+    except (TypeError, ValueError):
+        reading_id = None
+
+    conversation_id = data.get("conversation_id")
+    if conversation_id:
+        try:
+            conversation_id = int(conversation_id)
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "error": "会话参数错误"}), 400
+        if not get_conversation(user_id, conversation_id):
+            return jsonify({"success": False, "error": "会话不存在"}), 404
+    else:
+        conversation_id = create_conversation(
+            user_id,
+            title=(data.get("title") or context_type or "解读摘要")[:30],
+            context_type=context_type,
+            context_id=reading_id,
+        )
+
+    add_message(conversation_id, "assistant", content[:4000])
+    if reading_id:
+        update_conversation_context(conversation_id, context_type, reading_id)
+
+    return jsonify({"success": True, "conversation_id": conversation_id})
 
 
 # ==================== 结构化输出 ====================

@@ -53,6 +53,7 @@
 <script src="js/main.js"></script>
 <script src="js/longcat.js"></script>
 <script src="js/followup.js"></script>
+<script src="js/assistant.js"></script>
 <script src="js/pwa.js"></script>
 <script>
   // 检查登录（异步）
@@ -111,6 +112,14 @@
         initFollowup(saved.reading_id, {
           system: '你是一位精通解梦的心理学家。用户正在追问刚才的梦境解读，请结合上下文回答，语言温和有共情力，不要使用 markdown。',
           placeholder: '继续追问这个梦...'
+        });
+      }
+      if (saved.reading_id && typeof Assistant !== 'undefined') {
+        Assistant.pushResult({
+          type: '解梦',
+          title: '解梦完成',
+          summary: `梦境：${input.slice(0, 30)}…${(dreamResult || '').slice(0, 60)}`,
+          readingId: saved.reading_id
         });
       }
     } catch (error) {

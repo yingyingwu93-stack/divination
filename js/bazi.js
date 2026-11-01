@@ -107,12 +107,21 @@ async function calculateBazi() {
     saveBirthDate(birthDate);
 
     runBaziAI(json.data)
-      .then(text => saveBaziReading(json.data, text))
-      .then(readingId => {
+      .then(text => saveBaziReading(json.data, text).then(readingId => ({ text, readingId })))
+      .then(({ text, readingId }) => {
         if (readingId && typeof initFollowup === 'function') {
           initFollowup(readingId, {
             system: '你是一位精通八字命理的命理师。用户正在追问刚才的命盘解读，请结合上下文回答，语言通俗易懂，不要使用 markdown。',
             placeholder: '继续追问这次命盘解读...'
+          });
+        }
+        if (readingId && typeof Assistant !== 'undefined') {
+          const dm = json.data.day_master;
+          Assistant.pushResult({
+            type: '八字',
+            title: '八字排盘完成',
+            summary: `日主 ${dm.stem}${dm.element}，五行${json.data.strongest}最旺、${json.data.weakest}偏弱。${(text || '').slice(0, 60)}`,
+            readingId
           });
         }
       });
