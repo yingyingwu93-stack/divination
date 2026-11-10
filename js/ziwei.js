@@ -552,17 +552,6 @@ ${palaceLines}
 - 语言通俗易懂，避免堆砌术语`;
 }
 
-// 轻量 markdown 渲染（AI 有时会输出 **粗体** 等，不渲染会显示成原样）
-function renderMarkdown(text) {
-  return escapeHtml(text)
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>')
-    .replace(/^### (.*)$/gm, '<h4 style="margin:10px 0 4px;">$1</h4>')
-    .replace(/^## (.*)$/gm, '<h4 style="margin:12px 0 5px;">$1</h4>')
-    .replace(/^# (.*)$/gm, '<h3 style="margin:14px 0 6px;">$1</h3>')
-    .replace(/\n/g, '<br>');
-}
-
 async function runZiweiAI(astrolabe, payload) {
   const aiSection = document.getElementById('ziwei-ai-analysis');
   if (!aiSection) return;
@@ -574,7 +563,7 @@ async function runZiweiAI(astrolabe, payload) {
     let pending = '';
     let timer = null;
     const doRender = () => {
-      aiSection.innerHTML = renderMarkdown(pending);
+      aiSection.innerHTML = `<div class="ai-reading ziwei-ai-text">${renderAIContent(pending)}</div>`;
       timer = null;
     };
     const text = await getZiweiAnalysis({ prompt: buildZiweiPrompt(astrolabe, payload) }, (fullText) => {

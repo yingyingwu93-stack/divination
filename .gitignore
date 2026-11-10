@@ -41,3 +41,12 @@ htmlcov/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# ===== Capacitor / APK 构建产物 =====
+android/
+www/
+
+# ===== 截图 =====
+截图/
+tools/*.png
+tools/*.txt

@@ -245,11 +245,9 @@ async function runBaziAI(data) {
 
   try {
     let pending = '';
-    let renderedLen = 0;
     let textEl = null;
     let timer = null;
 
-    // 增量追加，避免每帧重建整段 DOM 导致页面重排、滚动位置跳动
     const doRender = () => {
       timer = null;
       if (!textEl) {
@@ -258,17 +256,13 @@ async function runBaziAI(data) {
         textEl.className = 'ai-reading bazi-ai-text';
         aiSection.appendChild(textEl);
       }
-      const chunk = pending.slice(renderedLen);
-      if (!chunk) return;
-      renderedLen = pending.length;
 
       // 仅当用户停留在页面底部附近时才跟随滚动，向上翻看时不打扰
       const nearBottom = window.innerHeight + window.scrollY >=
         document.documentElement.scrollHeight - 160;
 
-      const last = textEl.lastChild;
-      if (last && last.nodeType === 3) last.nodeValue += chunk;
-      else textEl.appendChild(document.createTextNode(chunk));
+      // 使用统一 Markdown 渲染
+      textEl.innerHTML = renderAIContent(pending);
 
       if (nearBottom) window.scrollTo(0, document.documentElement.scrollHeight);
     };
@@ -276,6 +270,15 @@ async function runBaziAI(data) {
     const text = await getBaziAnalysis({ prompt: buildBaziPrompt(data) }, (fullText) => {
       pending = fullText;
       if (!timer) timer = setTimeout(doRender, 120);
+    }, null, () => {
+      // 输出被 max_tokens 截断时给出提示
+      if (textEl && !textEl.querySelector('.truncate-hint')) {
+        const hint = document.createElement('div');
+        hint.className = 'truncate-hint';
+        hint.style.cssText = 'margin-top:12px;padding:10px 12px;border-radius:8px;background:rgba(239,68,68,0.1);color:#ef4444;font-size:13px;';
+        hint.textContent = '⚠️ 分析内容较长，已自动截断。可点击"重新排盘"再次生成。';
+        textEl.appendChild(hint);
+      }
     });
     if (timer) { clearTimeout(timer); }
     doRender();

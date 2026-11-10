@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: guanxiang-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app -k gthread --threads 8 --timeout 120
+    envVars:
+      - key: LONGCAT_API_KEY
+        sync: false
+      - key: LONGCAT_MODEL
+        value: LongCat-2.5
+      - key: ZHANBU_SECRET_KEY
+        generateValue: true
+      - key: ZHANBU_PASSWORD_SALT
+        generateValue: true
+      - key: PYTHON_VERSION
+        value: "3.8"

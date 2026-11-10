@@ -145,7 +145,7 @@ Nginx 反向代理配置见根目录 `nginx.conf`，已针对 SSE 关闭缓冲�
 |--------|------|--------|
 | `LONGCAT_API_KEY` | LongCat API 密钥 | 空（未配置时 AI 接口不可用） |
 | `LONGCAT_API_URL` | API 地址 | `https://api.longcat.chat/openai/v1/chat/completions` |
-| `LONGCAT_MODEL` | 模型名称 | `LongCat-2.0` |
+| `LONGCAT_MODEL` | 模型名称 | `LongCat-2.5` |
 | `ZHANBU_SECRET_KEY` | JWT 签名密钥 | 内置默认值（生产必须修改） |
 | `ZHANBU_PASSWORD_SALT` | 密码盐值 | 内置默认值（生产必须修改） |
 | `ZHANBU_DB_PATH` | SQLite 路径 | `backend/data.db` |

@@ -1,6 +1,11 @@
 /* ========== 后端 API 封装 ========== */
-// 默认使用相对路径（Flask 同域部署），开发时可改为绝对路径
-const API_BASE = '/api';
+
+/* ========== 后端地址配置（部署时只需改这里）========== */
+// 本地开发：留空，自动使用 /api
+// 部署到 Netlify 后：填你的后端地址，例如 https://xxx.onrender.com/api
+const BACKEND_URL = '';
+
+const API_BASE = BACKEND_URL || '/api';
 
 // Token 管理
 const Auth = {
@@ -120,7 +125,7 @@ const HistoryAPI = {
 };
 
 // 通用流式请求（SSE）
-async function streamEndpoint(path, payload, onChunk, onResponse) {
+async function streamEndpoint(path, payload, onChunk, onResponse, onTruncated) {
   const token = Auth.getToken();
   const response = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
@@ -141,6 +146,7 @@ async function streamEndpoint(path, payload, onChunk, onResponse) {
   const decoder = new TextDecoder('utf-8');
   let fullContent = '';
   let buffer = '';
+  let truncated = false;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -159,6 +165,10 @@ async function streamEndpoint(path, payload, onChunk, onResponse) {
       try {
         const json = JSON.parse(data);
         if (json.error) throw new Error(json.error);
+        if (json.truncated) {
+          truncated = true;
+          continue;
+        }
         const delta = json.content || '';
         if (delta) {
           fullContent += delta;
@@ -171,6 +181,7 @@ async function streamEndpoint(path, payload, onChunk, onResponse) {
   }
 
   if (!fullContent) throw new Error('模型无回复');
+  if (truncated && onTruncated) onTruncated();
   return fullContent;
 }
 
@@ -194,8 +205,8 @@ function streamDreamAnalysis(dream, onChunk) {
   return streamEndpoint('/ai/dream', { dream }, onChunk);
 }
 
-function streamBaziAnalysis(prompt, onChunk) {
-  return streamEndpoint('/ai/bazi', { prompt }, onChunk);
+function streamBaziAnalysis(prompt, onChunk, onTruncated) {
+  return streamEndpoint('/ai/bazi', { prompt }, onChunk, null, onTruncated);
 }
 
 function streamZiweiAnalysis(prompt, onChunk) {

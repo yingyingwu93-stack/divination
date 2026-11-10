@@ -781,7 +781,8 @@ function appendChatBubble(role, text) {
   if (!messagesEl) return;
   const msg = document.createElement('div');
   msg.className = 'chat-msg ' + (role === 'user' ? 'user' : 'ai');
-  msg.innerHTML = `<div class="chat-bubble">${escapeHtml(cleanChatText(text)).replace(/\n/g, '<br>')}</div>`;
+  const content = role === 'user' ? escapeHtml(text) : renderAIContent(cleanChatText(text));
+  msg.innerHTML = `<div class="chat-bubble">${content}</div>`;
   messagesEl.appendChild(msg);
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
@@ -836,7 +837,7 @@ async function sendChat() {
     bubble.className = 'chat-bubble';
 
     const doRender = () => {
-      bubble.innerHTML = escapeHtml(cleanChatText(aiReply)).replace(/\n/g, '<br>');
+      bubble.innerHTML = renderAIContent(cleanChatText(aiReply));
       frameRequested = false;
       messagesEl.scrollTop = messagesEl.scrollHeight;
     };

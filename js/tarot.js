@@ -126,7 +126,7 @@ async function showReading() {
     resultText.appendChild(readingContainer);
 
     const doRender = () => {
-      readingContainer.innerHTML = escapeHtml(pendingText).replace(/\n/g, '<br>');
+      readingContainer.innerHTML = renderAIContent(pendingText);
       frameRequested = false;
     };
 

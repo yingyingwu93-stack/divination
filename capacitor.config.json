@@ -1,0 +1,8 @@
+{
+  "appId": "com.guanxiang.app",
+  "appName": "观象",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}

@@ -73,7 +73,7 @@ _load_env(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
 LONGCAT_API_KEY = os.environ.get("LONGCAT_API_KEY", "")
 LONGCAT_API_URL = os.environ.get("LONGCAT_API_URL", "https://api.longcat.chat/openai/v1/chat/completions")
-MODEL_NAME = os.environ.get("LONGCAT_MODEL", "LongCat-2.0")
+MODEL_NAME = os.environ.get("LONGCAT_MODEL", "LongCat-2.5")
 # =============================================
 
 # 启动时检查 API Key
@@ -338,32 +338,36 @@ def _sse_stream(messages, max_tokens=2000, temperature=0.8, endpoint="chat",
     def generate():
         full_content = []
         completed = False
+        truncated = False
 
         def handle_line(line_text):
-            """解析单行 SSE；返回 (是否结束, 新增文本)"""
-            nonlocal completed
+            """解析单行 SSE；返回 (是否结束, 新增文本, 是否被截断)"""
+            nonlocal completed, truncated
             if not line_text.startswith("data:"):
-                return False, None
+                return False, None, False
             chunk_data = line_text[5:].strip()
             if chunk_data == "[DONE]":
                 completed = True
-                return True, None
+                return True, None, False
             try:
                 parsed = json.loads(chunk_data)
                 choices = parsed.get("choices") or []
                 if not choices:
-                    return False, None
+                    return False, None, False
                 choice = choices[0]
                 # 兼容 delta（流式）和 message（非流式）两种格式
                 delta = (choice.get("delta", {}).get("content")
                          or choice.get("message", {}).get("content")
                          or "")
-                if choice.get("finish_reason"):
+                finish = choice.get("finish_reason")
+                if finish:
                     completed = True
-                    return True, delta
-                return False, delta
+                    # finish_reason == 'length' 表示达到 max_tokens 被截断
+                    truncated = (finish == "length")
+                    return True, delta, truncated
+                return False, delta, False
             except (json.JSONDecodeError, IndexError, KeyError):
-                return False, None
+                return False, None, False
 
         try:
             response = requests.post(
@@ -377,7 +381,10 @@ def _sse_stream(messages, max_tokens=2000, temperature=0.8, endpoint="chat",
                     "messages": messages,
                     "max_tokens": max_tokens,
                     "temperature": temperature,
-                    "stream": True
+                    "stream": True,
+                    # 关闭思维链：LongCat 推理模型默认先输出大量 reasoning_content，
+                    # 会挤占 max_tokens 导致正式回答为空（表现为“模型无回复”）
+                    "chat_template_kwargs": {"thinking": False}
                 },
                 stream=True,
                 timeout=120
@@ -399,25 +406,35 @@ def _sse_stream(messages, max_tokens=2000, temperature=0.8, endpoint="chat",
                     line_text = line_bytes.decode("utf-8", errors="replace").strip()
                     if not line_text:
                         continue
-                    stop, delta = handle_line(line_text)
+                    stop, delta, is_trunc = handle_line(line_text)
+                    if is_trunc:
+                        truncated = True
                     if delta:
                         full_content.append(delta)
                         yield f"data: {json.dumps({'content': delta}, ensure_ascii=False)}\n\n"
                     if stop:
+                        if truncated:
+                            yield f"data: {json.dumps({'truncated': True}, ensure_ascii=False)}\n\n"
                         yield "data: [DONE]\n\n"
                         return
             # 处理缓冲区剩余内容
             if buf.strip():
                 line_text = buf.decode("utf-8", errors="replace").strip()
                 if line_text:
-                    stop, delta = handle_line(line_text)
+                    stop, delta, is_trunc = handle_line(line_text)
+                    if is_trunc:
+                        truncated = True
                     if delta:
                         full_content.append(delta)
                         yield f"data: {json.dumps({'content': delta}, ensure_ascii=False)}\n\n"
                     if stop:
+                        if truncated:
+                            yield f"data: {json.dumps({'truncated': True}, ensure_ascii=False)}\n\n"
                         yield "data: [DONE]\n\n"
                         return
             completed = True
+            if truncated:
+                yield f"data: {json.dumps({'truncated': True}, ensure_ascii=False)}\n\n"
             yield "data: [DONE]\n\n"
 
         except requests.exceptions.Timeout:
@@ -475,7 +492,7 @@ def zodiac_analysis():
 1. 分析要有针对性，结合具体星座的特点
 2. 语言生动有趣，像朋友在聊天
 3. 给出实用的生活建议
-4. 不要使用 markdown 格式，用自然段落
+4. 使用简洁的 Markdown 排版（## 标题、**重点**、- 列表）增强可读性
 5. 用空行分段，结构清晰"""
         },
         {
@@ -484,7 +501,7 @@ def zodiac_analysis():
         }
     ]
 
-    return _sse_stream(messages, 3000, 0.8, "zodiac")
+    return _sse_stream(messages, 4000, 0.8, "zodiac")
 
 
 # ==================== 解梦知识库接口 ====================
@@ -552,7 +569,7 @@ def dream_analysis():
 1. 结合梦境中的具体意象进行分析
 2. 从心理学角度解释梦境反映的内心状态
 3. 给出实用的生活建议
-4. 不要使用 markdown 格式，用自然段落
+4. 使用简洁的 Markdown 排版（## 标题、**重点**、- 列表）增强可读性
 5. 语言温和有共情力，用空行分段"""
 
     if context:
@@ -565,7 +582,7 @@ def dream_analysis():
         {"role": "system", "content": system},
         {"role": "user", "content": f"用户梦境：{dream_content}\n\n请从关键意象、潜意识心理、生活启示三个方面解读。"},
     ]
-    return _sse_stream(messages, 2200, 0.8, "dream")
+    return _sse_stream(messages, 4000, 0.8, "dream")
 
 
 # ==================== 八字 AI（RAG 增强） ====================
@@ -587,7 +604,7 @@ def bazi_analysis():
 1. 分析要有针对性，结合具体干支组合
 2. 语言通俗易懂，深入浅出
 3. 既要专业又要有实用性，给出具体建议
-4. 不要使用 markdown 格式，用自然段落
+4. 使用简洁的 Markdown 排版（## 标题、**重点**、- 列表）增强可读性
 5. 用空行分段，结构清晰"""
 
     if context:
@@ -600,7 +617,7 @@ def bazi_analysis():
         {"role": "system", "content": system},
         {"role": "user", "content": prompt},
     ]
-    return _sse_stream(messages, 3200, 0.8, "bazi")
+    return _sse_stream(messages, 5000, 0.8, "bazi")
 
 
 # ==================== 紫微斗数 AI 解读 ====================
@@ -622,7 +639,7 @@ def ziwei_analysis():
 1. 分析要有针对性，结合具体星曜、宫位与四化飞星
 2. 语言通俗易懂，深入浅出
 3. 既要专业又要有实用性，给出具体建议
-4. 不要使用 markdown 格式，用自然段落
+4. 使用简洁的 Markdown 排版（## 标题、**重点**、- 列表）增强可读性
 5. 用空行分段，结构清晰
 6. 涉及健康、婚姻等内容时给出建设性引导，避免绝对化断言"""
 
@@ -636,7 +653,7 @@ def ziwei_analysis():
         {"role": "system", "content": system},
         {"role": "user", "content": prompt},
     ]
-    return _sse_stream(messages, 3600, 0.8, "ziwei")
+    return _sse_stream(messages, 5000, 0.8, "ziwei")
 
 
 # ==================== 对话追问 ====================
@@ -646,7 +663,7 @@ DEFAULT_CHAT_SYSTEM = """你是一位温暖、有共情力的 AI 观象助手。
 1. 始终保持积极、正向的引导
 2. 语言温暖自然，像朋友在聊天
 3. 回答要有实用性，给出具体建议
-4. 不要使用 markdown 格式，用自然段落
+4. 可以使用简洁的 Markdown 排版（**重点**、- 列表）增强可读性
 5. 每次回答控制在 200-400 字
 6. 用空行分段，结构清晰
 
